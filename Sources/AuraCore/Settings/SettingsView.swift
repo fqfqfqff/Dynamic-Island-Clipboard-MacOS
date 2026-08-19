@@ -254,6 +254,11 @@ struct SettingsView: View {
                 hint("Иначе macOS показывает верхнюю кромку окна поверх видео.")
             }
 
+            group("Несколько мониторов") {
+                Toggle("Переносить панель на экран с курсором", isOn: $settings.followMouseScreen)
+                hint("Выключено — панель живёт на экране с физическим вырезом.")
+            }
+
             group("Мониторы без выреза") {
                 slider("Ширина виртуального выреза", $settings.virtualNotchWidth, 120...320, "pt")
                 hint("Применяется после перезапуска Aura.")
@@ -272,6 +277,7 @@ struct SettingsView: View {
                 Toggle("Зарядка", isOn: $settings.enableBattery)
                 Toggle("Наушники и Bluetooth", isOn: $settings.enableBluetooth)
                 Toggle("Режим фокусирования", isOn: $settings.enableFocus)
+                Toggle("Ближайшая встреча из Календаря", isOn: $settings.enableCalendar)
                 Toggle("Уведомления приложений", isOn: $settings.enableNotifications)
                 if settings.enableNotifications {
                     hint("Требует Универсальный доступ. Системный баннер при этом остаётся — спрятать чужое окно приложение не может.")
@@ -332,6 +338,7 @@ struct SettingsView: View {
             }
 
             group("Разрешения") {
+                Button("Открыть экран настройки разрешений") { AppActions.showOnboarding() }
                 Button("Запросить разрешения заново") { settings.forgetPermissionPrompts() }
                 hint("Aura спрашивает разрешения один раз. Если вы отказали случайно — эта кнопка позволит спросить снова.")
             }

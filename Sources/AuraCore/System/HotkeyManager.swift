@@ -6,6 +6,9 @@ import Carbon.HIToolbox
 /// API древний, но живой и, в отличие от `NSEvent.addGlobalMonitorForEvents`
 /// для клавиатуры, не требует разрешения Accessibility.
 final class HotkeyManager {
+    /// Единственный экземпляр живёт на главном потоке: Carbon-обработчики
+    /// приходят в главный рун-луп, и делить их между потоками нечего.
+    @MainActor
     static let shared = HotkeyManager()
 
     private var handlers: [UInt32: () -> Void] = [:]

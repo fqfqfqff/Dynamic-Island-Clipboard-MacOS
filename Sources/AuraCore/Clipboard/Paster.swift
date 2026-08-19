@@ -12,8 +12,10 @@ enum Paster {
 
     /// Ответ кэшируется: `AXIsProcessTrusted` — обращение к системной службе,
     /// а SwiftUI спрашивает об этом на каждой перерисовке.
+    @MainActor
     private static var cached: (value: Bool, checkedAt: Date)?
 
+    @MainActor
     static var canPaste: Bool {
         if let cached, Date().timeIntervalSince(cached.checkedAt) < 2, cached.value {
             return true
@@ -23,6 +25,7 @@ enum Paster {
         return value
     }
 
+    @MainActor
     static func pasteIntoFrontmostApp() {
         guard canPaste else { return }
 

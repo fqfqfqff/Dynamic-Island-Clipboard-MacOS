@@ -1,212 +1,106 @@
 # Aura
 
-Живой вырез, менеджер буфера обмена и открытый API для MacBook.
-macOS 14+, Swift 6.2, без внешних зависимостей.
+Turns the MacBook camera notch into a live island, and gives macOS a proper
+clipboard history. Written in Swift, no dependencies.
 
-## Установка
+> Русская версия — [README.ru.md](README.ru.md)
 
-Одна команда — она делает всё: создаёт сертификат для стабильной подписи,
-собирает, ставит приложение в `~/Applications`, ставит заставку и включает
-автозапуск.
+## What it does
+
+**The island.** Sits in the notch, invisible until something happens. Shows
+what is playing, headphone battery, charging, volume, screenshots, the next
+calendar event, focus mode changes and notifications from other apps. Expands
+on hover into a player with artwork, a seek bar and controls.
+
+**Any audio source.** Not just Spotify. The island finds whoever is playing
+sound through the CoreAudio process list, so a video in the browser or a voice
+message in a messenger shows up too. Music and Spotify additionally give track
+name, artwork, position and playback control.
+
+**Real spectrum.** The equaliser bars are driven by an actual FFT over a
+CoreAudio process tap, not by a looping animation.
+
+**Clipboard.** A separate window on ⌥⌘V with search, previews, pinning and a
+full log of everything ever copied. Passwords from password managers never
+enter the history — the `org.nspasteboard.*` markers are respected.
+
+**A shelf.** Drop files onto the notch, drag them out later into a mail
+message or a chat.
+
+**On the lock screen.** macOS does not let apps draw there — the whole user
+session is hidden. The one thing it does run is a screen saver, so Aura ships
+one: it shows the player, artwork and synced lyrics over the locked screen.
+
+**An open API.** Any script can put itself into the notch:
 
 ```bash
-git clone <адрес репозитория> && cd aura && ./Scripts/setup.sh
+Scripts/aura push --id build --title "Building" --progress 0.4
 ```
 
-Готового бинарника нет намеренно: без Developer ID за $99 в год macOS считает
-скачанное приложение повреждённым. Сборка из исходников этой проблемы не имеет
-и занимает меньше минуты.
+## Install
 
-Разрешения система спросит сама при первом обращении:
+One command. It creates a signing certificate so permissions survive rebuilds,
+builds the app, installs it into `~/Applications`, installs the screen saver
+and enables launch at login.
 
-| Что | Зачем |
+```bash
+git clone https://github.com/<you>/aura && cd aura && ./Scripts/setup.sh
+```
+
+There is no prebuilt binary on purpose: without a $99/year Developer ID macOS
+calls downloaded apps damaged. Building from source avoids that entirely and
+takes under a minute.
+
+macOS 14.4 or newer, Apple silicon or Intel.
+
+### Permissions
+
+The system asks for these itself, on first use. A first-run screen explains
+what each one buys you.
+
+| Permission | Used for |
 |---|---|
-| Универсальный доступ | вставка из буфера и зеркало уведомлений |
-| Автоматизация | что играет в Музыке и Spotify |
-| Запись звука | полоски эквалайзера по реальным частотам |
-| Bluetooth | заряд наушников |
+| Accessibility | pasting from the clipboard, mirroring notifications |
+| Automation | track info from Music and Spotify |
+| Audio capture | equaliser bars driven by real frequencies |
+| Bluetooth | headphone battery |
+| Calendars | the next meeting |
+| Full disk | focus mode state (optional) |
 
-Если запрос не появился — правый клик по иконке в строке меню → Настройки →
-Система → «Запросить разрешения заново».
+Nothing is recorded, uploaded or sent anywhere. The only network request is an
+optional lyrics lookup at lrclib.net, which receives a track name, an artist
+and a duration — and only if lyrics are switched on.
 
-Почему так: TCC запоминает приложение по пути и подписи. Сборка в `build/`
-пересоздаётся каждый раз, а ad-hoc подпись меняется — для системы это каждый
-раз новое приложение, и переключатель в «Универсальном доступе» становится
-неактивным.
-
-Если Aura уже была в списках разрешений со старой подписью, записи нужно
-сбросить, иначе они останутся залипшими:
+## Development
 
 ```bash
-tccutil reset Accessibility dev.kekch.aura
-tccutil reset AppleEvents dev.kekch.aura
+./Scripts/run.sh       # build and run from ./build
+./Scripts/install.sh   # update the installed copy
+swift test             # 75 tests
+Scripts/aura status    # what works right now and why something does not
 ```
 
-### Если диалог разрешения не появляется
-
-Проверьте, что в `Resources/Info.plist` есть `NSAppleEventsUsageDescription`.
-Без этого ключа macOS не показывает запрос вообще — она молча отвечает отказом,
-и это неотличимо от «пользователь запретил».
-
-## Разработка
-
-```bash
-./Scripts/run.sh          # собрать и запустить из build/
-./Scripts/build.sh        # только собрать, печатает путь к .app
-swift test                # тесты
-```
-
-Отладочный лог того, что попадает в буфер:
-
-```bash
-AURA_DEBUG=1 ./build/Aura.app/Contents/MacOS/Aura
-```
-
-## Что умеет
-
-**Вырез.** Три состояния: незаметная пилюля по форме физического выреза →
-подсказка при наведении → раскрытая панель. Мышь проходит сквозь окно везде,
-кроме видимой формы, поэтому строка меню остаётся рабочей. На машинах и внешних
-мониторах без выреза рисуется виртуальный.
-
-**Буфер обмена — отдельное окно.** Открывается по ⌥⌘V или кликом по иконке
-в строке меню. Поиск, история с распознаванием текста, ссылок, картинок, файлов
-и цветов, сохранение между запусками. Пароли из менеджеров в историю не
-попадают — уважаются служебные типы `org.nspasteboard.*`. Клик по строке
-вставляет её в то приложение, где вы работали (нужно разрешение Accessibility).
-
-**Настройки.** Пункт «Настройки…» в меню иконки или ⌘,: форма выреза, размеры
-раскрытой панели, раскрытие по наведению, поведение в полноэкранном режиме,
-какие источники показывать, параметры буфера.
-
-**Активности.** Всё, что показывает вырез, — активность с приоритетом.
-Несколько живут одновременно: самая важная занимает компактные слоты по краям
-выреза, остальные видны в раскрытой панели.
-
-Что показывается само:
-- **Музыка** — Музыка и Spotify: трек, прогресс, управление. Требует разрешения
-  Automation. Источники вроде видео в браузере недоступны — см. R1 в PLAN.md.
-- **Зарядка** — при подключении кабеля и при заряде ниже 20%.
-- **Громкость** — при изменении, слушателем CoreAudio.
-- **Снимки экрана** — превью нового снимка, которое можно перетащить мышью
-  прямо в письмо или чат.
-- **Внешние задачи** — всё, что пришло через API.
-
-**Строка меню.** Левый клик по иконке открывает окно буфера, правый — меню
-с настройками.
-
-## API
-
-Любое приложение или скрипт может показать себя в вырезе — через локальный
-сокет `~/Library/Application Support/Aura/control.sock` или через `aura://`.
-
-### CLI
-
-```bash
-Scripts/aura push --id build --title "Сборка" --progress 0.4 --symbol hammer.fill
-Scripts/aura push --id ci --title "CI" --text "3/7" --tint orange --ttl 120
-Scripts/aura remove --id build
-Scripts/aura list
-```
-
-Повторный `push` с тем же `--id` обновляет карточку на месте, а не плодит новые.
-Удобно для прогресса:
-
-```bash
-for i in $(seq 0 10); do
-    Scripts/aura push --id job --title "Обработка" --progress "0.$i"
-    sleep 1
-done
-Scripts/aura remove --id job
-```
-
-### Протокол сокета
-
-Одна JSON-строка на соединение, ответ — тоже JSON.
-
-```json
-{"cmd":"activity.push","id":"build","title":"Сборка","subtitle":"linking",
- "symbol":"hammer.fill","tint":"orange","progress":0.4,"ttl":30,"priority":"normal"}
-{"cmd":"activity.remove","id":"build"}
-{"cmd":"activity.list"}
-{"cmd":"notch.open"}
-{"cmd":"notch.close"}
-{"cmd":"ping"}
-```
-
-Поля активности: `id` и `title` обязательны; `subtitle`, `symbol` (SF Symbol),
-`tint` (red, orange, yellow, green, mint, cyan, blue, purple, pink, gray),
-`ttl` (секунды до автоудаления), `priority` (ambient, normal, important, critical).
-Индикатор справа от выреза задаётся одним из: `progress` (0–1, кольцо),
-`text` (короткая строка), `pulse` (работа без известного прогресса).
-
-### URL-схема
-
-Для Shortcuts, скриптов и браузера. Значения нужно percent-кодировать.
-
-```bash
-open "aura://activity/push?id=t1&title=Hello%20World&ttl=8"
-```
-
-## Что показывает вырез
-
-- **Любой звук** — Spotify, Музыка, видео в браузере, мессенджеры. Для Музыки
-  и Spotify доступны трек, обложка, позиция и управление; для остальных —
-  приложение и заголовок вкладки.
-- **Полоски по реальным частотам** — тап аудио-процессов CoreAudio и БПФ.
-- **Наушники** — подключение и заряд AirPods.
-- **Зарядка, громкость, снимки экрана, режим фокусирования.**
-- **Уведомления приложений** — по желанию, через Accessibility.
-- **Свои задачи** — через `Scripts/aura push`.
-
-## Плеер на заблокированном экране
-
-Обычным приложениям macOS рисовать на экране блокировки не даёт — там скрыта
-вся пользовательская сессия. Обход — заставка: её запускает сама система,
-в том числе поверх заблокированного экрана.
-
-```bash
-./Scripts/install-saver.sh
-```
-
-Затем Системные настройки → Заставка → «Aura». Плагин читает
-`/Users/Shared/Aura/nowplaying.json`, который пишет приложение, и показывает
-часы, обложку, трек и полосу длительности.
-
-Витрина на весь экран без блокировки — ⌥⌘M.
-
-## Тесты
-
-```bash
-swift test
-```
-
-40 тестов на чистую логику: разбор команд управления, очередь активностей с
-приоритетами, разбор ответов плеера, сериализация истории буфера, геометрия и
-состояния выреза, настройки.
-
-## Структура
+## Layout
 
 ```
-Sources/Aura/       точка входа (только она — чтобы остальное было тестируемо)
+Sources/Aura/       entry point only, so the rest stays testable
 Sources/AuraCore/
-  App/              делегат, меню в строке состояния, разбор внешних команд
-  Notch/            геометрия выреза, окно-панель, форма, состояния, вид
-  Clipboard/        поллер пастборда, модель, окно истории, вставка, хранилище
-  Activities/       модель, очередь с приоритетами, провайдеры, компактный вид
-  Control/          сокет и разбор команд
-  Settings/         хранилище настроек и окно
-  System/           разрешения, хоткеи, курсор, полноэкранный режим
-Tests/AuraCoreTests/
+  App/              delegate, menu bar, external commands
+  Notch/            notch geometry, panel window, shape, states
+  Activities/       activity queue with priorities and its providers
+  Clipboard/        pasteboard polling, history window, archive
+  Showcase/         full-screen player and the snapshot the saver reads
+  Shelf/            files dropped onto the notch
+  Onboarding/       first-run permission walkthrough
+  Settings/         settings store and window
+  System/           permissions, hotkeys, audio spectrum, watchers
+Sources/AuraSaver/  the screen saver plug-in
 ```
 
-## Если что-то не работает
+Design notes and the reasoning behind non-obvious decisions live in
+[PLAN.md](PLAN.md) — including why the private MediaRemote framework cannot be
+used, and the three-time lesson about `Info.plist` usage keys.
 
-```bash
-Scripts/aura status
-```
+## License
 
-Показывает, видна ли панель, сколько активностей, есть ли право на вставку и
-почему молчит плеер (не запущен, нет доступа, нечего играть).
-
-План работ и известные ограничения — в [PLAN.md](PLAN.md).
+MIT

@@ -15,6 +15,7 @@ enum ClipboardStore {
         let extra: [String]
         let date: Date
         let source: String?
+        var pinned: Bool?
     }
 
     static var fileURL: URL {
@@ -45,19 +46,23 @@ enum ClipboardStore {
     private static func record(from item: ClipboardItem) -> Record? {
         switch item.kind {
         case .text(let value):
-            return Record(kind: .text, value: value, extra: [], date: item.date, source: item.sourceName)
+            return Record(kind: .text, value: value, extra: [], date: item.date,
+                          source: item.sourceName, pinned: item.isPinned)
         case .link(let url):
-            return Record(kind: .link, value: url.absoluteString, extra: [], date: item.date, source: item.sourceName)
+            return Record(kind: .link, value: url.absoluteString, extra: [], date: item.date,
+                          source: item.sourceName, pinned: item.isPinned)
         case .files(let urls):
             return Record(
                 kind: .files,
                 value: urls.first?.path ?? "",
                 extra: urls.dropFirst().map(\.path),
                 date: item.date,
-                source: item.sourceName
+                source: item.sourceName,
+                pinned: item.isPinned
             )
         case .color(let color):
-            return Record(kind: .color, value: color.hexString, extra: [], date: item.date, source: item.sourceName)
+            return Record(kind: .color, value: color.hexString, extra: [], date: item.date,
+                          source: item.sourceName, pinned: item.isPinned)
         case .image:
             return nil
         }
@@ -79,6 +84,11 @@ enum ClipboardStore {
             guard let color = NSColor(hex: record.value) else { return nil }
             kind = .color(color)
         }
-        return ClipboardItem(kind: kind, date: record.date, sourceName: record.source)
+        return ClipboardItem(
+            kind: kind,
+            date: record.date,
+            sourceName: record.source,
+            isPinned: record.pinned ?? false
+        )
     }
 }

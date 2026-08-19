@@ -31,12 +31,56 @@ final class NotchPanel: NSPanel {
     }
 }
 
-/// Пропускает мышь насквозь везде, кроме текущей видимой формы панели.
+/// Пропускает мышь насквозь везде, кроме текущей видимой формы панели,
+/// и принимает файлы, которые бросают на вырез.
 final class NotchContainerView: NSView {
     var interactiveRect: () -> CGRect = { .zero }
+    var onDragEnter: (() -> Void)?
+    var onDragExit: (() -> Void)?
+    var onDrop: (([URL]) -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        registerForDraggedTypes([.fileURL])
+    }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard interactiveRect().contains(point) else { return nil }
         return super.hitTest(point)
+    }
+
+    // MARK: - Приём файлов
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard !urls(from: sender).isEmpty else { return [] }
+        onDragEnter?()
+        return .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDragExit?()
+    }
+
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        !urls(from: sender).isEmpty
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let files = urls(from: sender)
+        guard !files.isEmpty else { return false }
+        onDrop?(files)
+        return true
+    }
+
+    private func urls(from sender: NSDraggingInfo) -> [URL] {
+        sender.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL] ?? []
     }
 }

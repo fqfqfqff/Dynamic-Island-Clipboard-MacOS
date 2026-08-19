@@ -32,6 +32,8 @@
     <string>Aura анализирует звук, чтобы полоски в вырезе двигались под музыку. Запись никуда не сохраняется.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Aura показывает в вырезе подключение наушников и уровень их заряда.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Aura показывает в вырезе ближайшую встречу и время до её начала.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

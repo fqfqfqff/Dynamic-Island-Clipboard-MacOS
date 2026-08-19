@@ -13,6 +13,8 @@ struct ClipboardItem: Identifiable, Equatable {
     let kind: Kind
     let date: Date
     let sourceName: String?
+    /// Закреплённые элементы держатся наверху и не вытесняются лимитом.
+    var isPinned: Bool = false
 
     static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool { lhs.id == rhs.id }
 

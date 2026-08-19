@@ -12,6 +12,7 @@ final class NotchWindowController {
     private let settings: SettingsStore
     private let spectrum: AudioSpectrumMonitor
     private let lyrics: LyricsProvider
+    private let shelf: ShelfService
     private let mouse = MouseTracker()
     private let fullScreen = FullScreenWatcher()
     private var cancellables = Set<AnyCancellable>()
@@ -22,13 +23,15 @@ final class NotchWindowController {
         media: NowPlayingProvider,
         settings: SettingsStore,
         spectrum: AudioSpectrumMonitor,
-        lyrics: LyricsProvider
+        lyrics: LyricsProvider,
+        shelf: ShelfService
     ) {
         self.activities = activities
         self.media = media
         self.settings = settings
         self.spectrum = spectrum
         self.lyrics = lyrics
+        self.shelf = shelf
         // Экранов может не быть вовсе — например, при закрытой крышке без
         // внешнего монитора. Тогда работаем с запасной геометрией и ждём,
         // пока экран появится.
@@ -68,6 +71,15 @@ final class NotchWindowController {
             viewModel?.interactiveRectInWindow ?? .zero
         }
 
+        // Файл, который тащат к вырезу, раскрывает панель — чтобы было видно,
+        // куда именно его бросать.
+        container.onDragEnter = { [weak self] in
+            self?.viewModel.expand()
+        }
+        container.onDrop = { [weak self] urls in
+            self?.shelf.add(urls: urls)
+        }
+
         let hosting = NSHostingView(
             rootView: NotchRootView()
                 .environmentObject(viewModel)
@@ -76,6 +88,7 @@ final class NotchWindowController {
                 .environmentObject(settings)
                 .environmentObject(spectrum)
                 .environmentObject(lyrics)
+                .environmentObject(shelf)
         )
         hosting.frame = container.bounds
         hosting.autoresizingMask = [.width, .height]
@@ -112,6 +125,7 @@ final class NotchWindowController {
         mouse.onMove = { [weak self] point, speed in
             guard let self else { return }
             self.fullScreen.check()
+            self.followMouseIfNeeded(point)
 
             guard !self.isHiddenByFullScreen, !self.isHiddenByUser else {
                 self.panel?.ignoresMouseEvents = true
@@ -119,7 +133,9 @@ final class NotchWindowController {
             }
 
             // Небольшой запас, чтобы клик у самого края формы не проваливался.
-            let interactive = self.viewModel.interactiveRectOnScreen.insetBy(dx: -3, dy: -3)
+            let isDragging = NSEvent.pressedMouseButtons & 1 != 0
+            let padding: CGFloat = isDragging ? -70 : -3
+            let interactive = self.viewModel.interactiveRectOnScreen.insetBy(dx: padding, dy: padding)
             self.panel?.ignoresMouseEvents = !interactive.contains(point)
 
             self.viewModel.handleMouseMoved(to: point, speed: speed)
@@ -198,6 +214,20 @@ final class NotchWindowController {
             ),
             display: false
         )
+    }
+
+    /// Переносит панель на экран под курсором.
+    ///
+    /// На встроенном экране вырез физический, на внешнем рисуется виртуальный —
+    /// поэтому переезд имеет смысл только когда пользователь сам его включил.
+    private func followMouseIfNeeded(_ point: CGPoint) {
+        guard settings.followMouseScreen, viewModel.state == .collapsed else { return }
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }),
+              screen.frame != viewModel.geometry.screenFrame else { return }
+
+        let geometry = ScreenGeometry.geometry(for: screen, settings: settings)
+        viewModel.geometry = geometry
+        if let panel { apply(size: compactWindowSize, to: panel) }
     }
 
     func toggle() {

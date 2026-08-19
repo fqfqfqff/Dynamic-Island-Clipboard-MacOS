@@ -91,3 +91,13 @@ final class IntegrationParsersTests: XCTestCase {
         XCTAssertEqual(FocusActivityProvider.symbol(for: identifier), "moon.fill")
     }
 }
+
+extension IntegrationParsersTests {
+    func testCountdownReadsNaturally() {
+        XCTAssertEqual(CalendarActivityProvider.countdown(minutes: 1), "через минуту")
+        XCTAssertEqual(CalendarActivityProvider.countdown(minutes: 3), "через 3 минуты")
+        XCTAssertEqual(CalendarActivityProvider.countdown(minutes: 12), "через 12 минут")
+        XCTAssertEqual(CalendarActivityProvider.countdown(minutes: 0), "меньше минуты")
+        XCTAssertEqual(CalendarActivityProvider.countdown(minutes: -2), "вот-вот")
+    }
+}

@@ -35,6 +35,8 @@ final class SettingsStore: ObservableObject {
     @Published var trailingSlotStyle: String { didSet { save(trailingSlotStyle, "trailingSlotStyle") } }
     @Published var expandOnHover: Bool { didSet { save(expandOnHover, "expandOnHover") } }
     @Published var hideInFullScreen: Bool { didSet { save(hideInFullScreen, "hideInFullScreen") } }
+    /// Переносить панель на тот экран, где курсор.
+    @Published var followMouseScreen: Bool { didSet { save(followMouseScreen, "followMouseScreen") } }
     @Published var virtualNotchWidth: Double { didSet { save(virtualNotchWidth, "virtualNotchWidth") } }
 
     // Источники активностей
@@ -45,6 +47,7 @@ final class SettingsStore: ObservableObject {
     @Published var enableBluetooth: Bool { didSet { save(enableBluetooth, "enableBluetooth") } }
     @Published var enableNotifications: Bool { didSet { save(enableNotifications, "enableNotifications") } }
     @Published var enableFocus: Bool { didSet { save(enableFocus, "enableFocus") } }
+    @Published var enableCalendar: Bool { didSet { save(enableCalendar, "enableCalendar") } }
 
     @Published var reactToAudio: Bool { didSet { save(reactToAudio, "reactToAudio") } }
 
@@ -81,6 +84,7 @@ final class SettingsStore: ObservableObject {
     @Published var showcaseIdleMinutes: Double { didSet { save(showcaseIdleMinutes, "showcaseIdleMinutes") } }
 
     // Разрешения: запрашиваем ровно один раз, дальше — только по кнопке.
+    @Published var didCompleteOnboarding: Bool { didSet { save(didCompleteOnboarding, "didCompleteOnboarding") } }
     @Published var didAskAccessibility: Bool { didSet { save(didAskAccessibility, "didAskAccessibility") } }
     @Published var musicAccessBlocked: Bool { didSet { save(musicAccessBlocked, "musicAccessBlocked") } }
 
@@ -123,6 +127,7 @@ final class SettingsStore: ObservableObject {
         trailingSlotStyle = defaults.string(forKey: "trailingSlotStyle") ?? "bars"
         expandOnHover = bool("expandOnHover", true)
         hideInFullScreen = bool("hideInFullScreen", true)
+        followMouseScreen = bool("followMouseScreen", false)
         virtualNotchWidth = double("virtualNotchWidth", 190)
 
         enableMusic = bool("enableMusic", true)
@@ -132,6 +137,7 @@ final class SettingsStore: ObservableObject {
         enableBluetooth = bool("enableBluetooth", true)
         enableNotifications = bool("enableNotifications", false)
         enableFocus = bool("enableFocus", true)
+        enableCalendar = bool("enableCalendar", false)
 
         reactToAudio = bool("reactToAudio", true)
 
@@ -155,6 +161,7 @@ final class SettingsStore: ObservableObject {
         showcaseOnIdle = bool("showcaseOnIdle", false)
         showcaseIdleMinutes = double("showcaseIdleMinutes", 3)
 
+        didCompleteOnboarding = bool("didCompleteOnboarding", false)
         didAskAccessibility = bool("didAskAccessibility", false)
         musicAccessBlocked = bool("musicAccessBlocked", false)
 
@@ -186,6 +193,7 @@ final class SettingsStore: ObservableObject {
         trailingSlotStyle = "bars"
         expandOnHover = true
         hideInFullScreen = true
+        followMouseScreen = false
         virtualNotchWidth = 190
         enableMusic = true
         enableVolume = true
@@ -194,6 +202,7 @@ final class SettingsStore: ObservableObject {
         enableBluetooth = true
         enableNotifications = false
         enableFocus = true
+        enableCalendar = false
         clipboardLimit = 100
         persistClipboard = true
         autoPaste = true
@@ -203,6 +212,7 @@ final class SettingsStore: ObservableObject {
 
     /// Забыть, что разрешения уже спрашивали, — после этого Aura спросит снова.
     func forgetPermissionPrompts() {
+        didCompleteOnboarding = false
         didAskAccessibility = false
         musicAccessBlocked = false
     }

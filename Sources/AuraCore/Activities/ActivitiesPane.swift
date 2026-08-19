@@ -6,6 +6,7 @@ import SwiftUI
 struct ActivitiesPane: View {
     @EnvironmentObject private var center: ActivityCenter
     @EnvironmentObject private var media: NowPlayingProvider
+    @EnvironmentObject private var shelf: ShelfService
 
     private var accessBanner: some View {
         HStack(spacing: 8) {
@@ -56,10 +57,14 @@ struct ActivitiesPane: View {
                 MediaCard()
             }
 
+            if !shelf.items.isEmpty {
+                ShelfPane()
+            }
+
             // Плашка «тихо» уместна, только когда показывать действительно
             // нечего: раньше она вылезала под плеером, потому что условия
             // проверялись независимо друг от друга.
-            if media.nowPlaying == nil && others.isEmpty {
+            if media.nowPlaying == nil && others.isEmpty && shelf.items.isEmpty {
                 PlaceholderPane(
                     symbol: "waveform",
                     title: "Пока тихо",

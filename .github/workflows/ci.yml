@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Показать версию Swift
+        run: swift --version
+
+      - name: Сборка
+        run: swift build -v
+
+      - name: Тесты
+        run: swift test -v
+
+      - name: Проверить, что приложение собирается в бандл
+        run: ./Scripts/build.sh release

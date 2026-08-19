@@ -125,6 +125,11 @@ struct ClipboardWindowView: View {
                             // прыгало за курсором, и список «перематывался» сам
                             // от любого движения мыши.
                             .onTapGesture { onUse(item) }
+                            .contextMenu {
+                                Button(item.isPinned ? "Открепить" : "Закрепить") {
+                                    clipboard.togglePin(item)
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -220,9 +225,16 @@ private struct ClipboardRow: View {
                 .frame(width: 34, height: 34)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.system(size: 12))
-                    .lineLimit(2)
+                HStack(spacing: 5) {
+                    if item.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.orange)
+                    }
+                    Text(item.title)
+                        .font(.system(size: 12))
+                        .lineLimit(2)
+                }
                 HStack(spacing: 6) {
                     if let source = item.sourceName {
                         Text(source)

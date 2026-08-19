@@ -4,8 +4,10 @@ import CoreAudio
 /// Текущая громкость системы. Нужна, чтобы полоски эквалайзера не жили своей
 /// жизнью, а хотя бы отражали, насколько громко играет звук.
 enum SystemVolume {
+    @MainActor
     private static var cached: (value: Float, at: Date)?
 
+    @MainActor
     static var current: Float {
         if let cached, Date().timeIntervalSince(cached.at) < 2 {
             return cached.value

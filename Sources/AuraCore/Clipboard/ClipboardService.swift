@@ -70,8 +70,27 @@ final class ClipboardService: ObservableObject {
     }
 
     func clear() {
-        items.removeAll()
-        ClipboardStore.clear()
+        // Закреплённое переживает очистку: его закрепили именно для этого.
+        items.removeAll { !$0.isPinned }
+        persist()
+    }
+
+    func togglePin(_ item: ClipboardItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
+        items[index].isPinned.toggle()
+        sortPinnedFirst()
+        persist()
+    }
+
+    private func sortPinnedFirst() {
+        items.sort { lhs, rhs in
+            lhs.isPinned != rhs.isPinned ? lhs.isPinned : lhs.date > rhs.date
+        }
+    }
+
+    private func persist() {
+        guard settings.persistClipboard else { return }
+        ClipboardStore.save(items, limit: settings.clipboardLimit)
     }
 
     /// Кладёт элемент обратно в системный буфер.

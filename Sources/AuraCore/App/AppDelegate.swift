@@ -13,6 +13,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private let activities = ActivityCenter()
     private lazy var battery = BatteryActivityProvider(center: activities)
     private let lyrics = LyricsProvider()
+    private let shelf = ShelfService()
     private lazy var media = NowPlayingProvider(
         center: activities,
         settings: settings,
@@ -23,11 +24,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private lazy var bluetooth = BluetoothActivityProvider(center: activities)
     private lazy var notifications = NotificationMirrorProvider(center: activities)
     private lazy var focus = FocusActivityProvider(center: activities)
+    private lazy var calendar = CalendarActivityProvider(center: activities)
     private lazy var clipboardWindow = ClipboardWindowController(
         clipboard: clipboard,
         settings: settings
     )
     private lazy var settingsWindow = SettingsWindowController(settings: settings)
+    private lazy var onboarding = OnboardingWindowController(
+        settings: settings,
+        media: media,
+        spectrum: spectrum
+    )
     private lazy var showcase = ShowcaseWindowController(media: media, lyrics: lyrics, settings: settings)
     private let idle = IdleWatcher()
     private let spectrum = AudioSpectrumMonitor()
@@ -46,13 +53,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         NotificationCenter.default.addObserver(
             self, selector: #selector(quit), name: .auraQuit, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(showOnboarding), name: .auraShowOnboarding, object: nil
+        )
 
         notchController = NotchWindowController(
             activities: activities,
             media: media,
             settings: settings,
             spectrum: spectrum,
-            lyrics: lyrics
+            lyrics: lyrics,
+            shelf: shelf
         )
         notchController?.attachToScreenWithNotch()
 
@@ -65,6 +76,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         observeProviderSettings()
         applyPausedState()
         setUpIdleShowcase()
+
+        // Первый запуск: без объяснения, что за разрешения и зачем,
+        // приложение выглядит наполовину сломанным.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.onboarding.showIfNeeded()
+        }
 
         HotkeyManager.shared.register(.clipboardHistory) { [weak self] in
             self?.clipboardWindow.toggle()
@@ -248,6 +265,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         add(to: menu, title: "История буфера", key: "⌥⌘V", action: #selector(showClipboard))
         add(to: menu, title: "Витрина плеера", key: "⌥⌘M", action: #selector(toggleShowcase))
         add(to: menu, title: "Настройки…", key: "", action: #selector(showSettings))
+        add(to: menu, title: "Разрешения и настройка", key: "", action: #selector(showOnboarding))
         menu.addItem(.separator())
 
         add(
@@ -342,6 +360,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             bluetooth.stop()
             notifications.stop()
             focus.stop()
+            calendar.stop()
             volume.stop()
             battery.stop()
             clipboard.stop()
@@ -357,6 +376,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
     @objc private func toggleShowcase() {
         showcase.toggle()
+    }
+
+    @objc private func showOnboarding() {
+        onboarding.show()
     }
 
     @objc private func showSettings() {
@@ -430,6 +453,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         if settings.enableBluetooth { bluetooth.start() } else { bluetooth.stop() }
         if settings.enableNotifications { notifications.start() } else { notifications.stop() }
         if settings.enableFocus { focus.start() } else { focus.stop() }
+        if settings.enableCalendar { calendar.start() } else { calendar.stop() }
     }
 
     private func observeProviderSettings() {
@@ -444,6 +468,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             settings.$enableBluetooth.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableNotifications.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableFocus.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            settings.$enableCalendar.dropFirst().map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes)
             .receive(on: RunLoop.main)

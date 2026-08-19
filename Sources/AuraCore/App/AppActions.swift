@@ -5,6 +5,7 @@ import Foundation
 public extension Notification.Name {
     static let auraOpenSettings = Notification.Name("aura.openSettings")
     static let auraQuit = Notification.Name("aura.quit")
+    static let auraShowOnboarding = Notification.Name("aura.showOnboarding")
 }
 
 enum AppActions {
@@ -14,5 +15,9 @@ enum AppActions {
 
     static func quit() {
         NotificationCenter.default.post(name: .auraQuit, object: nil)
+    }
+
+    static func showOnboarding() {
+        NotificationCenter.default.post(name: .auraShowOnboarding, object: nil)
     }
 }
