@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Aura</string>
+    <key>CFBundleDisplayName</key>
+    <string>Aura</string>
+    <key>CFBundleExecutable</key>
+    <string>Aura</string>
+    <key>CFBundleIdentifier</key>
+    <string>dev.kekch.aura</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <!-- Без этого ключа macOS не показывает диалог разрешения на управление
+         другими приложениями, а молча отвечает отказом (-1743). -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Aura показывает в вырезе, что сейчас играет в Музыке и Spotify, и позволяет управлять воспроизведением.</string>
+    <!-- Тап аудио-процессов требует этого ключа: без него macOS отказывает
+         молча, не показывая запрос. -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Aura анализирует звук, чтобы полоски в вырезе двигались под музыку. Запись никуда не сохраняется.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Aura показывает в вырезе подключение наушников и уровень их заряда.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>dev.kekch.aura</string>
+            <key>CFBundleURLSchemes</key>
+            <array><string>aura</string></array>
+        </dict>
+    </array>
+</dict>
+</plist>

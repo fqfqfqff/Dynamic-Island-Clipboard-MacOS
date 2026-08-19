@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""CLI для Aura: показывает активности в вырезе MacBook.
+
+Примеры:
+    aura push --id build --title "Сборка" --progress 0.4 --symbol hammer.fill
+    aura push --id ci --title "CI" --text "3/7" --tint orange --ttl 120
+    aura remove --id build
+    aura list
+"""
+import argparse
+import json
+import os
+import socket
+import sys
+
+SOCKET_PATH = os.path.expanduser("~/Library/Application Support/Aura/control.sock")
+
+
+def send(payload):
+    try:
+        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        connection.settimeout(2)
+        connection.connect(SOCKET_PATH)
+    except OSError as error:
+        sys.exit(f"Aura не отвечает: {error}\nЗапущена ли она?")
+
+    with connection:
+        connection.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode())
+        answer = connection.recv(65536).decode().strip()
+
+    print(answer)
+    if '"ok":false' in answer.replace(" ", ""):
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="aura", description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    push = sub.add_parser("push", help="показать или обновить активность")
+    push.add_argument("--id", required=True, help="стабильный id: повтор обновляет карточку")
+    push.add_argument("--title", required=True)
+    push.add_argument("--subtitle")
+    push.add_argument("--symbol", help="имя SF Symbol, например hammer.fill")
+    push.add_argument("--tint", help="red, orange, yellow, green, mint, cyan, blue, purple, pink, gray")
+    push.add_argument("--progress", type=float, help="0.0–1.0, показывается кольцом")
+    push.add_argument("--text", help="короткий текст справа от выреза")
+    push.add_argument("--pulse", action="store_true", help="индикатор без известного прогресса")
+    push.add_argument("--ttl", type=float, help="через сколько секунд исчезнет сама")
+    push.add_argument("--priority", choices=["ambient", "normal", "important", "critical"])
+
+    remove = sub.add_parser("remove", help="убрать активность")
+    remove.add_argument("--id", required=True)
+
+    sub.add_parser("list", help="что сейчас в вырезе")
+    sub.add_parser("open", help="раскрыть панель")
+    sub.add_parser("close", help="свернуть панель")
+    sub.add_parser("ping", help="проверить связь")
+    sub.add_parser("status", help="диагностика: видна ли панель и что в ней")
+    showcase = sub.add_parser("showcase", help="витрина плеера на весь экран")
+    showcase.add_argument("--close", action="store_true")
+
+    autostart = sub.add_parser("autostart", help="запуск при входе в систему")
+    autostart.add_argument("--off", action="store_true")
+
+    args = parser.parse_args()
+
+    if args.command == "push":
+        payload = {"cmd": "activity.push", "id": args.id, "title": args.title}
+        for key in ("subtitle", "symbol", "tint", "progress", "text", "ttl", "priority"):
+            value = getattr(args, key)
+            if value is not None:
+                payload[key] = value
+        if args.pulse:
+            payload["pulse"] = True
+        send(payload)
+    elif args.command == "remove":
+        send({"cmd": "activity.remove", "id": args.id})
+    elif args.command == "list":
+        send({"cmd": "activity.list"})
+    elif args.command == "status":
+        send({"cmd": "status"})
+    elif args.command == "showcase":
+        send({"cmd": "showcase.close" if args.close else "showcase.open"})
+    elif args.command == "autostart":
+        send({"cmd": "autostart.off" if args.off else "autostart.on"})
+    elif args.command in ("open", "close"):
+        send({"cmd": f"notch.{args.command}"})
+    else:
+        send({"cmd": "ping"})
+
+
+if __name__ == "__main__":
+    main()
