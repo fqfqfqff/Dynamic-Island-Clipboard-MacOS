@@ -22,6 +22,18 @@ final class ShelfService: ObservableObject {
 
     private let limit = 12
 
+    private static var storeURL: URL {
+        let base = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Aura", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base.appendingPathComponent("shelf.json")
+    }
+
+    init() {
+        restore()
+    }
+
     func add(urls: [URL]) {
         for url in urls {
             // Один и тот же файл не кладём дважды.
@@ -35,14 +47,40 @@ final class ShelfService: ObservableObject {
         if items.count > limit {
             items.removeLast(items.count - limit)
         }
+        persist()
     }
 
     func remove(_ item: Item) {
         items.removeAll { $0.id == item.id }
+        persist()
     }
 
     func clear() {
         items.removeAll()
+        persist()
+    }
+
+    /// На диск уходят только пути: превью дешевле построить заново, чем
+    /// хранить, а сами файлы полка никогда не копирует.
+    private func persist() {
+        let paths = items.map(\.url.path)
+        guard let data = try? JSONEncoder().encode(paths) else { return }
+        try? data.write(to: Self.storeURL, options: .atomic)
+    }
+
+    private func restore() {
+        guard let data = try? Data(contentsOf: Self.storeURL),
+              let paths = try? JSONDecoder().decode([String].self, from: data)
+        else { return }
+
+        // Файл мог быть удалён или перемещён, пока приложение не работало.
+        let urls = paths
+            .map { URL(fileURLWithPath: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+
+        items = urls.map { url in
+            Item(url: url, addedAt: Date(), preview: Self.preview(for: url))
+        }
     }
 
     /// Уменьшенное превью: читается из файла через ImageIO, поэтому большой

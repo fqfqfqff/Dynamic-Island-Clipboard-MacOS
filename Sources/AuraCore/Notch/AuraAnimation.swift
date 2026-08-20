@@ -50,13 +50,17 @@ extension AnyTransition {
         )
     }
 
-    /// Переход для компактных значков по краям выреза.
+    /// Переход для компактных значков по краям выреза: они не возникают
+    /// из ниоткуда, а будто выезжают из-под кромки.
     static var auraCompact: AnyTransition {
         .asymmetric(
             insertion: .opacity
-                .combined(with: .scale(scale: 0.7))
+                .combined(with: .scale(scale: 0.72, anchor: .top))
+                .combined(with: .offset(y: -6))
                 .animation(AuraAnimation.notch),
-            removal: .opacity.animation(AuraAnimation.contentOut)
+            removal: .opacity
+                .combined(with: .scale(scale: 0.9, anchor: .top))
+                .animation(AuraAnimation.contentOut)
         )
     }
 }

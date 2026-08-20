@@ -16,6 +16,9 @@ final class SettingsStore: ObservableObject {
     @Published var paused: Bool { didSet { save(paused, "paused") } }
 
     // Поведение
+    @Published var scrollAdjustsVolume: Bool { didSet { save(scrollAdjustsVolume, "scrollAdjustsVolume") } }
+    @Published var scrollSwitchesTrack: Bool { didSet { save(scrollSwitchesTrack, "scrollSwitchesTrack") } }
+    @Published var doubleClickTogglesPlayback: Bool { didSet { save(doubleClickTogglesPlayback, "doubleClickTogglesPlayback") } }
     @Published var reactToProximity: Bool { didSet { save(reactToProximity, "reactToProximity") } }
     /// Радиус, с которого остров начинает реагировать на курсор.
     @Published var proximityReach: Double { didSet { save(proximityReach, "proximityReach") } }
@@ -114,6 +117,9 @@ final class SettingsStore: ObservableObject {
 
         showNotch = bool("showNotch", true)
         paused = bool("paused", false)
+        scrollAdjustsVolume = bool("scrollAdjustsVolume", true)
+        scrollSwitchesTrack = bool("scrollSwitchesTrack", true)
+        doubleClickTogglesPlayback = bool("doubleClickTogglesPlayback", true)
         reactToProximity = bool("reactToProximity", true)
         proximityReach = double("proximityReach", 180)
         animationSpeed = double("animationSpeed", 1)
@@ -121,7 +127,7 @@ final class SettingsStore: ObservableObject {
         autoCollapseAfter = double("autoCollapseAfter", 0)
         showChevronHint = bool("showChevronHint", true)
         showShadow = bool("showShadow", true)
-        showBorder = bool("showBorder", false)
+        showBorder = bool("showBorder", true)
         backdropBlur = double("backdropBlur", 48)
         showRemainingTime = bool("showRemainingTime", false)
         trailingSlotStyle = defaults.string(forKey: "trailingSlotStyle") ?? "bars"
@@ -180,6 +186,9 @@ final class SettingsStore: ObservableObject {
         showWings = true
         showNotch = true
         paused = false
+        scrollAdjustsVolume = true
+        scrollSwitchesTrack = true
+        doubleClickTogglesPlayback = true
         reactToProximity = true
         proximityReach = 180
         animationSpeed = 1
@@ -187,7 +196,7 @@ final class SettingsStore: ObservableObject {
         autoCollapseAfter = 0
         showChevronHint = true
         showShadow = true
-        showBorder = false
+        showBorder = true
         backdropBlur = 48
         showRemainingTime = false
         trailingSlotStyle = "bars"

@@ -80,6 +80,13 @@ final class NotchWindowController {
             self?.shelf.add(urls: urls)
         }
 
+        container.onScrollVertical = { [weak self] delta in
+            self?.adjustVolume(by: delta)
+        }
+        container.onScrollHorizontal = { [weak self] delta in
+            self?.switchTrack(by: delta)
+        }
+
         let hosting = NSHostingView(
             rootView: NotchRootView()
                 .environmentObject(viewModel)
@@ -230,6 +237,28 @@ final class NotchWindowController {
         if let panel { apply(size: compactWindowSize, to: panel) }
     }
 
+    /// Прокрутка над вырезом меняет громкость. Шаг маленький: жест должен
+    /// ощущаться как ручка, а не как переключатель.
+    private func adjustVolume(by delta: CGFloat) {
+        guard settings.scrollAdjustsVolume else { return }
+        let step = Float(delta) * 0.004
+        SystemVolume.set(SystemVolume.current + step)
+    }
+
+    /// Горизонтальный жест переключает трек, но только когда накопится
+    /// уверенное движение — иначе трек прыгал бы от любого касания трекпада.
+    private func switchTrack(by delta: CGFloat) {
+        guard settings.scrollSwitchesTrack else { return }
+        horizontalScroll += delta
+
+        guard abs(horizontalScroll) > 60,
+              Date().timeIntervalSince(lastTrackSwitch) > 0.6 else { return }
+
+        media.send(horizontalScroll > 0 ? .previous : .next)
+        horizontalScroll = 0
+        lastTrackSwitch = Date()
+    }
+
     func toggle() {
         viewModel.toggleExpanded()
     }
@@ -237,6 +266,8 @@ final class NotchWindowController {
     /// Ручное скрытие из меню. Отдельно от полноэкранного режима: пользователь
     /// мог выключить вырез сам, и возврат из видео не должен его включать.
     private var isHiddenByUser = false
+    private var horizontalScroll: CGFloat = 0
+    private var lastTrackSwitch = Date.distantPast
 
     func setVisible(_ visible: Bool) {
         isHiddenByUser = !visible

@@ -44,6 +44,13 @@ enum ClipboardArchive {
             handle.write(data)
         } else {
             try? data.write(to: url, options: .atomic)
+            // Журнал хранит всё скопированное, включая пароли и токены,
+            // которые не были помечены как приватные. Читать его должен
+            // только владелец.
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: url.path
+            )
         }
     }
 

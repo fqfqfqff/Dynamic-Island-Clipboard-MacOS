@@ -43,6 +43,15 @@ final class ControlServer {
             }
             listener.start(queue: .main)
             self.listener = listener
+
+            // Сокет позволяет рисовать что угодно в вырезе — доступ только
+            // владельцу. Права выставляются после того, как сокет создан.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                try? FileManager.default.setAttributes(
+                    [.posixPermissions: 0o600],
+                    ofItemAtPath: url.path
+                )
+            }
             NSLog("Aura: управляющий сокет %@", url.path)
         } catch {
             NSLog("Aura: не удалось открыть сокет — %@", error.localizedDescription)

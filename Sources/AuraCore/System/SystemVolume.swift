@@ -17,17 +17,39 @@ enum SystemVolume {
         return value
     }
 
-    private static func read() -> Float? {
-        var deviceAddress = AudioObjectPropertyAddress(
+    /// Ставит громкость. Значение подрезается: система принимает 0…1,
+    /// а на краях иначе легко проскочить в тишину или в максимум.
+    @MainActor
+    static func set(_ value: Float) {
+        guard let device = outputDevice() else { return }
+        var volume = max(0, min(1, value))
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectSetPropertyData(
+            device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume
+        )
+        cached = (volume, Date())
+    }
+
+    private static func outputDevice() -> AudioDeviceID? {
+        var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
         var device = AudioDeviceID(0)
-        var deviceSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         guard AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &deviceAddress, 0, nil, &deviceSize, &device
-        ) == noErr else { return nil }
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device
+        ) == noErr, device != kAudioObjectUnknown else { return nil }
+        return device
+    }
+
+    private static func read() -> Float? {
+        guard let device = outputDevice() else { return nil }
 
         var volumeAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,

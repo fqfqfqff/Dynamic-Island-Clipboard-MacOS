@@ -93,6 +93,12 @@ struct SettingsView: View {
                 }
             }
 
+            group("Жесты") {
+                Toggle("Прокрутка над вырезом меняет громкость", isOn: $settings.scrollAdjustsVolume)
+                Toggle("Прокрутка вбок переключает трек", isOn: $settings.scrollSwitchesTrack)
+                Toggle("Двойной клик ставит на паузу", isOn: $settings.doubleClickTogglesPlayback)
+            }
+
             group("Движение") {
                 slider("Скорость анимаций", $settings.animationSpeed, 0.5...2, "×")
                 slider("Задержка раскрытия", $settings.hoverDelay, 0...1.2, "с")

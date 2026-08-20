@@ -6,6 +6,8 @@ struct NotchRootView: View {
     @EnvironmentObject private var media: NowPlayingProvider
     @EnvironmentObject private var settings: SettingsStore
 
+    @State private var isPressed = false
+
     private var size: CGSize { viewModel.contentSize }
     private var isExpanded: Bool { viewModel.state == .expanded }
 
@@ -29,8 +31,24 @@ struct NotchRootView: View {
             content
         }
         .frame(width: size.width, height: size.height)
+        // Отклик на нажатие: остров слегка проседает под курсором, как
+        // физическая кнопка. Без этого клик ощущается как промах.
+        .scaleEffect(isPressed ? 0.985 : 1, anchor: .top)
+        .animation(AuraAnimation.touch, value: isPressed)
         .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            guard settings.doubleClickTogglesPlayback, media.nowPlaying != nil else {
+                viewModel.toggleExpanded()
+                return
+            }
+            media.send(.togglePlayPause)
+        }
         .onTapGesture { viewModel.toggleExpanded() }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
@@ -59,10 +77,27 @@ struct NotchRootView: View {
             )
     }
 
+    /// Тонкая светлая кромка, как у острова на iPhone.
+    ///
+    /// Не ровная обводка по кругу, а градиент: вверху ярче, книзу гаснет —
+    /// будто на край падает свет сверху. Ровная линия одинаковой яркости
+    /// выглядит нарисованной, эта — объёмной.
     @ViewBuilder
     private var border: some View {
-        if settings.showBorder && isExpanded {
-            shape.stroke(.white.opacity(0.14), lineWidth: 1)
+        if settings.showBorder {
+            shape.stroke(
+                LinearGradient(
+                    stops: [
+                        .init(color: .white.opacity(isExpanded ? 0.38 : 0.22), location: 0),
+                        .init(color: .white.opacity(isExpanded ? 0.14 : 0.08), location: 0.35),
+                        .init(color: .white.opacity(0.04), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 0.8
+            )
+            .allowsHitTesting(false)
         }
     }
 

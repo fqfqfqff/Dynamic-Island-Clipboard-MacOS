@@ -38,6 +38,9 @@ final class NotchContainerView: NSView {
     var onDragEnter: (() -> Void)?
     var onDragExit: (() -> Void)?
     var onDrop: (([URL]) -> Void)?
+    /// Вертикальная прокрутка над вырезом — громкость, горизонтальная — трек.
+    var onScrollVertical: ((CGFloat) -> Void)?
+    var onScrollHorizontal: ((CGFloat) -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -52,6 +55,24 @@ final class NotchContainerView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard interactiveRect().contains(point) else { return nil }
         return super.hitTest(point)
+    }
+
+    // MARK: - Прокрутка
+
+    override func scrollWheel(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard interactiveRect().contains(point) else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        // Что это было — вертикальный жест или горизонтальный — решаем
+        // по преобладающей оси: на трекпаде чистых движений не бывает.
+        if abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) * 1.5 {
+            onScrollHorizontal?(event.scrollingDeltaX)
+        } else {
+            onScrollVertical?(event.scrollingDeltaY)
+        }
     }
 
     // MARK: - Приём файлов

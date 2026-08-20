@@ -31,13 +31,53 @@ final class VolumeActivityProvider {
     }
 
     private var listener: AudioObjectPropertyListenerBlock?
+    private var deviceListener: AudioObjectPropertyListenerBlock?
+    private var defaultDeviceAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
 
     func stop() {
+        if let deviceListener {
+            AudioObjectRemovePropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject),
+                &defaultDeviceAddress,
+                .main,
+                deviceListener
+            )
+            self.deviceListener = nil
+        }
+        detachFromDevice()
+        center.remove(id: activityID)
+    }
+
+    private func detachFromDevice() {
         guard let listener, deviceID != kAudioObjectUnknown else { return }
         AudioObjectRemovePropertyListenerBlock(deviceID, &volumeAddress, .main, listener)
         AudioObjectRemovePropertyListenerBlock(deviceID, &muteAddress, .main, listener)
         self.listener = nil
-        center.remove(id: activityID)
+    }
+
+    /// Переподписка на новое устройство вывода.
+    private func reattach() {
+        detachFromDevice()
+        guard let device = Self.defaultOutputDevice() else { return }
+        deviceID = device
+
+        // Новое устройство — своя громкость; показывать её как «изменение»
+        // не нужно, поэтому просто запоминаем.
+        lastVolume = readVolume()
+        lastMuted = readMuted()
+
+        let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { self?.changed() }
+            }
+        }
+        self.listener = listener
+        AudioObjectAddPropertyListenerBlock(deviceID, &volumeAddress, .main, listener)
+        AudioObjectAddPropertyListenerBlock(deviceID, &muteAddress, .main, listener)
     }
 
     func start() {
@@ -62,6 +102,23 @@ final class VolumeActivityProvider {
 
         AudioObjectAddPropertyListenerBlock(deviceID, &volumeAddress, .main, listener)
         AudioObjectAddPropertyListenerBlock(deviceID, &muteAddress, .main, listener)
+
+        // Устройство вывода меняется на ходу: подключили AirPods — и прежняя
+        // подписка висит на встроенных динамиках, а индикатор молчит.
+        // Поэтому слушаем ещё и саму смену устройства.
+        guard deviceListener == nil else { return }
+        let onDeviceChange: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { self?.reattach() }
+            }
+        }
+        deviceListener = onDeviceChange
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &defaultDeviceAddress,
+            .main,
+            onDeviceChange
+        )
     }
 
     private func changed() {
