@@ -148,3 +148,15 @@ extension IntegrationParsersTests {
         XCTAssertEqual(AudioProcessMonitor.preferred(from: [airplay])?.name, "AirPlayXPCHelper")
     }
 }
+
+extension IntegrationParsersTests {
+    /// Версии сравниваются по числам: строкой «0.10.0» оказалось бы старше «0.9.0».
+    func testVersionComparison() {
+        XCTAssertTrue(UpdateChecker.isNewer("0.2.0", than: "0.1.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.10.0", than: "0.9.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("1.0", than: "0.9.9"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.1.0", than: "0.1.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.1.0", than: "0.2.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("мусор", than: "0.1.0"))
+    }
+}

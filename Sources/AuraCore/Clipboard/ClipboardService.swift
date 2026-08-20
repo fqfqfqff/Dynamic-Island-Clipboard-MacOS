@@ -69,10 +69,30 @@ final class ClipboardService: ObservableObject {
         }
     }
 
+    /// Что было в истории до последней очистки. Держим, пока не закроют
+    /// окно буфера: «очистить» — единственное необратимое действие здесь,
+    /// и промахнуться по нему легко.
+    @Published private(set) var lastCleared: [ClipboardItem]?
+
     func clear() {
+        let removed = items.filter { !$0.isPinned }
+        guard !removed.isEmpty else { return }
+
+        lastCleared = items
         // Закреплённое переживает очистку: его закрепили именно для этого.
         items.removeAll { !$0.isPinned }
         persist()
+    }
+
+    func undoClear() {
+        guard let lastCleared else { return }
+        items = lastCleared
+        self.lastCleared = nil
+        persist()
+    }
+
+    func forgetUndo() {
+        lastCleared = nil
     }
 
     func togglePin(_ item: ClipboardItem) {

@@ -349,6 +349,19 @@ struct SettingsView: View {
                 hint("Aura спрашивает разрешения один раз. Если вы отказали случайно — эта кнопка позволит спросить снова.")
             }
 
+            group("Готовые наборы") {
+                ForEach(SettingsStore.Preset.allCases) { preset in
+                    HStack(alignment: .top, spacing: 10) {
+                        Button(preset.rawValue) { settings.apply(preset) }
+                            .frame(width: 110, alignment: .leading)
+                        Text(preset.explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
             group("Сброс") {
                 Button("Сбросить все настройки") { settings.resetToDefaults() }
                 Button("Выйти из Aura") { AppActions.quit() }

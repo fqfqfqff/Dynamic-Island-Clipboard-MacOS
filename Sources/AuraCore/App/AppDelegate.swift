@@ -39,6 +39,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private let idle = IdleWatcher()
     private let spectrum = AudioSpectrumMonitor()
     private let screenState = ScreenStateWatcher()
+    private let updates = UpdateChecker()
     private var providerSubscriptions = Set<AnyCancellable>()
     private lazy var control = ControlServer { [weak self] command in
         self?.handle(command) ?? #"{"ok":false,"error":"приложение не готово"}"#
@@ -76,6 +77,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         observeProviderSettings()
         applyPausedState()
         setUpIdleShowcase()
+        updates.start()
 
         // Первый запуск: без объяснения, что за разрешения и зачем,
         // приложение выглядит наполовину сломанным.
@@ -287,6 +289,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         add(to: menu, title: "Запросить доступ к плееру", key: "", action: #selector(requestMusicAccess))
         add(to: menu, title: "Очистить историю буфера", key: "", action: #selector(clearClipboard))
         menu.addItem(.separator())
+        if let release = updates.available {
+            add(
+                to: menu,
+                title: "Есть версия \(release.version)",
+                key: "",
+                action: #selector(openRelease)
+            )
+            menu.addItem(.separator())
+        }
         add(to: menu, title: "Выйти из Aura", key: "", action: #selector(quit))
 
         statusItem.menu = menu
@@ -376,6 +387,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
     @objc private func toggleShowcase() {
         showcase.toggle()
+    }
+
+    @objc private func openRelease() {
+        guard let release = updates.available else { return }
+        NSWorkspace.shared.open(release.url)
     }
 
     @objc private func showOnboarding() {

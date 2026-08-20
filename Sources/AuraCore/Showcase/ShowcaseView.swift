@@ -26,9 +26,24 @@ struct ShowcaseView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2, perform: onClose)
         .background {
-            Button("", action: onClose)
-                .keyboardShortcut(.escape, modifiers: [])
-                .opacity(0)
+            // Кнопки-невидимки: витрина занимает весь экран, и обычный
+            // onKeyPress до неё не доходит — фокус ей не принадлежит.
+            VStack {
+                Button("") { media.send(.togglePlayPause) }
+                    .keyboardShortcut(.space, modifiers: [])
+                Button("") { media.send(.next) }
+                    .keyboardShortcut(.rightArrow, modifiers: [])
+                Button("") { media.send(.previous) }
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+                Button("") { SystemVolume.set(SystemVolume.current + 0.05) }
+                    .keyboardShortcut(.upArrow, modifiers: [])
+                Button("") { SystemVolume.set(SystemVolume.current - 0.05) }
+                    .keyboardShortcut(.downArrow, modifiers: [])
+                Button("", action: onClose)
+                    .keyboardShortcut(.escape, modifiers: [])
+            }
+            .opacity(0)
+            .frame(width: 0, height: 0)
         }
     }
 
@@ -84,7 +99,7 @@ struct ShowcaseView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Text("двойной клик или esc — закрыть")
+            Text("пробел — пауза · ← → трек · ↑ ↓ громкость · esc — закрыть")
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.2))
                 .padding(.bottom, 28)

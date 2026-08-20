@@ -127,7 +127,7 @@ final class SettingsStore: ObservableObject {
         autoCollapseAfter = double("autoCollapseAfter", 0)
         showChevronHint = bool("showChevronHint", true)
         showShadow = bool("showShadow", true)
-        showBorder = bool("showBorder", true)
+        showBorder = bool("showBorder", false)
         backdropBlur = double("backdropBlur", 48)
         showRemainingTime = bool("showRemainingTime", false)
         trailingSlotStyle = defaults.string(forKey: "trailingSlotStyle") ?? "bars"
@@ -196,7 +196,7 @@ final class SettingsStore: ObservableObject {
         autoCollapseAfter = 0
         showChevronHint = true
         showShadow = true
-        showBorder = true
+        showBorder = false
         backdropBlur = 48
         showRemainingTime = false
         trailingSlotStyle = "bars"
@@ -224,6 +224,74 @@ final class SettingsStore: ObservableObject {
         didCompleteOnboarding = false
         didAskAccessibility = false
         musicAccessBlocked = false
+    }
+
+    /// Готовые наборы настроек.
+    ///
+    /// Параметров стало больше сорока, и собрать из них осмысленную
+    /// конфигурацию вручную — отдельная работа. Пресеты дают три понятные
+    /// точки, от которых можно оттолкнуться.
+    enum Preset: String, CaseIterable, Identifiable {
+        case minimal = "Минимум"
+        case balanced = "Обычный"
+        case everything = "Всё сразу"
+        case quiet = "Спокойный"
+
+        var id: String { rawValue }
+
+        var explanation: String {
+            switch self {
+            case .minimal:
+                "Плеер и буфер. Ни спектра, ни уведомлений, ни лишнего движения."
+            case .balanced:
+                "Настройки по умолчанию: музыка, зарядка, громкость, снимки экрана."
+            case .everything:
+                "Все источники и все жесты, включая уведомления и календарь."
+            case .quiet:
+                "Всё видно, но ничего не движется: анимации медленные, полоски статичны."
+            }
+        }
+    }
+
+    func apply(_ preset: Preset) {
+        switch preset {
+        case .minimal:
+            enableMusic = true
+            enableVolume = false
+            enableScreenshots = false
+            enableBattery = false
+            enableBluetooth = false
+            enableNotifications = false
+            enableFocus = false
+            enableCalendar = false
+            reactToAudio = false
+            showShadow = false
+            backdropStrength = 0.4
+
+        case .balanced:
+            resetToDefaults()
+
+        case .everything:
+            enableMusic = true
+            enableVolume = true
+            enableScreenshots = true
+            enableBattery = true
+            enableBluetooth = true
+            enableNotifications = true
+            enableFocus = true
+            enableCalendar = true
+            reactToAudio = true
+            showLyrics = true
+            scrollAdjustsVolume = true
+            scrollSwitchesTrack = true
+
+        case .quiet:
+            reactToAudio = false
+            reactToProximity = false
+            animationSpeed = 1.6
+            expandOnHover = false
+            showChevronHint = false
+        }
     }
 
     func resetShowcase() {

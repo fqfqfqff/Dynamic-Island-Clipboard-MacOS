@@ -20,6 +20,11 @@ struct ClipboardWindowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if clipboard.lastCleared != nil {
+                undoBanner
+                Divider()
+            }
+
             if needsAccessibility {
                 permissionBanner
                 Divider()
@@ -65,6 +70,28 @@ struct ClipboardWindowView: View {
     /// нельзя — со стороны выглядит как будто кнопка не работает.
     private var needsAccessibility: Bool {
         settings.autoPaste && !Paster.canPaste
+    }
+
+    private var undoBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.uturn.backward")
+                .foregroundStyle(.secondary)
+            Text("История очищена")
+                .font(.system(size: 11, weight: .medium))
+            Spacer()
+            Button("Вернуть") { clipboard.undoClear() }
+                .font(.system(size: 11))
+            Button {
+                clipboard.forgetUndo()
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 9))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.quaternary.opacity(0.4))
     }
 
     private var permissionBanner: some View {
