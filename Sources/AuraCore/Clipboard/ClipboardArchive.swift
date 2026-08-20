@@ -59,6 +59,45 @@ enum ClipboardArchive {
         return text.split(separator: "\n").count
     }
 
+    struct Found: Identifiable {
+        let id = UUID()
+        let date: Date
+        let value: String
+        let source: String?
+    }
+
+    /// Поиск по журналу. Файл читается с конца: свежие записи нужнее старых,
+    /// а журнал за месяцы работы вырастает в мегабайты.
+    static func search(_ query: String, limit: Int = 100) -> [Found] {
+        guard !query.isEmpty,
+              let text = try? String(contentsOf: fileURL, encoding: .utf8)
+        else { return [] }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let entries = text.split(separator: "\n").compactMap { line -> Entry? in
+            guard let data = line.data(using: .utf8) else { return nil }
+            return try? decoder.decode(Entry.self, from: data)
+        }
+        return filter(entries, query: query, limit: limit)
+    }
+
+    /// Отбор вынесен отдельно от чтения файла: это единственная часть поиска,
+    /// которую есть смысл проверять тестами.
+    static func filter(_ entries: [Entry], query: String, limit: Int) -> [Found] {
+        guard !query.isEmpty else { return [] }
+
+        var result: [Found] = []
+        // С конца: свежие записи нужнее старых.
+        for entry in entries.reversed() {
+            guard result.count < limit else { break }
+            guard entry.value.localizedCaseInsensitiveContains(query) else { continue }
+            result.append(Found(date: entry.date, value: entry.value, source: entry.source))
+        }
+        return result
+    }
+
     static func revealInFinder() {
         let url = fileURL
         if !FileManager.default.fileExists(atPath: url.path) {

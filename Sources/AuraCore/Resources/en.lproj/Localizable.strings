@@ -68,3 +68,6 @@
 "ui.eca17171" = "System";
 "ui.ef37cbf6" = "Paste on click";
 "ui.fe2a94d0" = "Charging";
+"ui.archive" = "in log";
+"ui.archiveHint" = "Type a query — we will search the whole log";
+"ui.archiveEmpty" = "Nothing found in the log";

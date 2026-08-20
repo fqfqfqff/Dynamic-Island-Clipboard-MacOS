@@ -20,11 +20,12 @@ struct MediaCard: View {
                 artwork(playing)
 
                 VStack(spacing: 1) {
-                    Text(playing.title)
-                        .font(.system(size: settings.titleFontSize, weight: .bold, design: design))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .contentTransition(.opacity)
+                    MarqueeText(
+                        text: playing.title,
+                        font: .system(size: settings.titleFontSize, weight: .bold, design: design),
+                        color: .white
+                    )
+                    .frame(height: settings.titleFontSize + 6)
 
                     Text(playing.subtitle ?? playing.appName)
                         .font(.system(size: max(9, settings.titleFontSize - 3.5), weight: .medium, design: design))

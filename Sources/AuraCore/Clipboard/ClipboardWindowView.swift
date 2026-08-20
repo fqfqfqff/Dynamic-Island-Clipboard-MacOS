@@ -8,6 +8,8 @@ struct ClipboardWindowView: View {
     @EnvironmentObject private var settings: SettingsStore
     @State private var query = ""
     @State private var selection: UUID?
+    @State private var searchesArchive = false
+    @State private var archiveResults: [ClipboardArchive.Found] = []
     @FocusState private var searchFocused: Bool
 
     private var items: [ClipboardItem] {
@@ -33,7 +35,9 @@ struct ClipboardWindowView: View {
             search
             Divider()
 
-            if items.isEmpty {
+            if searchesArchive {
+                archiveList
+            } else if items.isEmpty {
                 empty
             } else {
                 list
@@ -135,6 +139,13 @@ struct ClipboardWindowView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            // История ограничена лимитом, журнал хранит всё — иногда нужно
+            // именно то, что уже вытеснено.
+            Toggle(t("ui.archive", "в журнале"), isOn: $searchesArchive)
+                .toggleStyle(.button)
+                .font(.system(size: 10))
+                .onChange(of: searchesArchive) { _, _ in refreshArchive() }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -236,13 +247,76 @@ struct ClipboardWindowView: View {
         selection = items[next].id
     }
 
+    private var archiveList: some View {
+        Group {
+            if query.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "text.magnifyingglass")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(.secondary)
+                    Text(t("ui.archiveHint", "Введите запрос — искать будем во всём журнале"))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if archiveResults.isEmpty {
+                Text(t("ui.archiveEmpty", "В журнале ничего не найдено"))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(archiveResults) { found in
+                            archiveRow(found)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                }
+            }
+        }
+        .onChange(of: query) { _, _ in refreshArchive() }
+    }
+
+    private func archiveRow(_ found: ClipboardArchive.Found) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(found.value)
+                .font(.system(size: 12))
+                .lineLimit(2)
+            HStack(spacing: 6) {
+                if let source = found.source { Text(source) }
+                Text(ClipboardRow.formatter.string(from: found.date))
+            }
+            .font(.system(size: 10))
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(found.value, forType: .string)
+            onClose()
+        }
+    }
+
+    private func refreshArchive() {
+        guard searchesArchive else {
+            archiveResults = []
+            return
+        }
+        archiveResults = ClipboardArchive.search(query)
+    }
+
     private func useSelected() {
         guard let selection, let item = items.first(where: { $0.id == selection }) else { return }
         onUse(item)
     }
 }
 
-private struct ClipboardRow: View {
+struct ClipboardRow: View {
     let item: ClipboardItem
     let isSelected: Bool
 

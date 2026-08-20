@@ -125,3 +125,38 @@ extension ClipboardTests {
                        "тире — это не поломка")
     }
 }
+
+extension ClipboardTests {
+    /// Поиск по журналу отбирает по содержимому и отдаёт свежее первым.
+    func testArchiveSearchMatchesByContent() {
+        let entries = [
+            ClipboardArchive.Entry(date: Date(timeIntervalSince1970: 100),
+                                   kind: "text", value: "первый токен", source: "Xcode"),
+            ClipboardArchive.Entry(date: Date(timeIntervalSince1970: 200),
+                                   kind: "text", value: "просто текст", source: nil),
+            ClipboardArchive.Entry(date: Date(timeIntervalSince1970: 300),
+                                   kind: "text", value: "второй токен", source: "Safari"),
+        ]
+
+        let found = ClipboardArchive.filter(entries, query: "токен", limit: 10)
+
+        XCTAssertEqual(found.count, 2)
+        XCTAssertEqual(found.first?.value, "второй токен", "свежие записи должны идти первыми")
+    }
+
+    func testArchiveSearchIgnoresCaseAndEmptyQuery() {
+        let entries = [
+            ClipboardArchive.Entry(date: Date(), kind: "text", value: "ТОКЕН", source: nil),
+        ]
+        XCTAssertEqual(ClipboardArchive.filter(entries, query: "токен", limit: 10).count, 1)
+        XCTAssertTrue(ClipboardArchive.filter(entries, query: "", limit: 10).isEmpty)
+    }
+
+    func testArchiveSearchRespectsLimit() {
+        let entries = (0..<50).map {
+            ClipboardArchive.Entry(date: Date(timeIntervalSince1970: Double($0)),
+                                   kind: "text", value: "совпадение \($0)", source: nil)
+        }
+        XCTAssertEqual(ClipboardArchive.filter(entries, query: "совпадение", limit: 5).count, 5)
+    }
+}
