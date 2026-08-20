@@ -224,7 +224,7 @@ final class NowPlayingProvider: ObservableObject {
             return
         }
 
-        present(source: sources[0])
+        present(source: AudioProcessMonitor.preferred(from: sources) ?? sources[0])
     }
 
     private func askPlayer(_ player: ScriptablePlayer, fallback sources: [AudioProcessMonitor.Source]) {
@@ -293,7 +293,25 @@ final class NowPlayingProvider: ObservableObject {
     }
 
     /// Источник, который не умеет рассказать о себе: показываем приложение.
+    /// Для трансляции с телефона названия трека нет — macOS его приложениям
+    /// не отдаёт, — зато видно, что звук идёт, и полоски пляшут по-настоящему.
     private func present(source: AudioProcessMonitor.Source) {
+        if source.isAirPlay {
+            publish(NowPlaying(
+                title: "Звук с устройства",
+                subtitle: "AirPlay",
+                appName: "AirPlay",
+                artwork: nil,
+                blurredArtwork: nil,
+                duration: nil,
+                elapsed: nil,
+                isPlaying: true,
+                accent: .cyan,
+                canControl: false
+            ))
+            return
+        }
+
         let icon = source.icon
         let title = BrowserTitleReader.isBrowser(source.bundleID)
             ? (BrowserTitleReader.activeTabTitle(bundleID: source.bundleID) ?? source.name)
@@ -332,7 +350,9 @@ final class NowPlayingProvider: ObservableObject {
                 id: activityID,
                 title: playing.title,
                 subtitle: playing.subtitle ?? playing.appName,
-                symbol: playing.isPlaying ? "waveform" : "pause.fill",
+                symbol: playing.appName == "AirPlay"
+                    ? "airplayaudio"
+                    : (playing.isPlaying ? "waveform" : "pause.fill"),
                 tint: playing.accent,
                 artwork: playing.artwork,
                 priority: .ambient,

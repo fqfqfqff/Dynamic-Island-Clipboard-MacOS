@@ -101,3 +101,50 @@ extension IntegrationParsersTests {
         XCTAssertEqual(CalendarActivityProvider.countdown(minutes: -2), "вот-вот")
     }
 }
+
+extension IntegrationParsersTests {
+    /// Категория берётся из класса устройства, а не из названия: наушники
+    /// могут называться как угодно.
+    func testCategoryFromBluetoothClass() {
+        XCTAssertEqual(
+            BluetoothCategory.from(major: 0x04, minor: 0x06, name: "что угодно"),
+            .headphones
+        )
+        XCTAssertEqual(
+            BluetoothCategory.from(major: 0x04, minor: 0x05, name: "что угодно"),
+            .speaker
+        )
+        XCTAssertEqual(BluetoothCategory.from(major: 0x02, minor: 0, name: "—"), .phone)
+        XCTAssertEqual(BluetoothCategory.from(major: 0x07, minor: 0, name: "—"), .watch)
+        XCTAssertEqual(BluetoothCategory.from(major: 0x05, minor: 0x10, name: "—"), .keyboard)
+        XCTAssertEqual(BluetoothCategory.from(major: 0x05, minor: 0x20, name: "—"), .mouse)
+    }
+
+    func testCategoryFallsBackToNameWhenClassIsUnknown() {
+        XCTAssertEqual(BluetoothCategory.from(major: 0, minor: 0, name: "AirPods (Мой)"), .headphones)
+        XCTAssertEqual(BluetoothCategory.from(major: 0, minor: 0, name: "iPhone Никиты"), .phone)
+        XCTAssertEqual(BluetoothCategory.from(major: 0, minor: 0, name: "Мои наушники"), .headphones)
+        XCTAssertEqual(BluetoothCategory.from(major: 0, minor: 0, name: "Неизвестно"), .other)
+    }
+
+    func testEachCategoryHasItsOwnWording() {
+        XCTAssertEqual(BluetoothCategory.headphones.connectedTitle, "Наушники подключены")
+        XCTAssertEqual(BluetoothCategory.phone.connectedTitle, "Телефон рядом")
+        XCTAssertNotEqual(BluetoothCategory.phone.symbol, BluetoothCategory.headphones.symbol)
+    }
+
+    /// Играющее приложение важнее системного посредника AirPlay.
+    func testLocalAppWinsOverAirPlay() {
+        let airplay = AudioProcessMonitor.Source(
+            pid: 1, bundleID: "com.apple.AirPlayXPCHelper", name: "AirPlayXPCHelper"
+        )
+        let spotify = AudioProcessMonitor.Source(
+            pid: 2, bundleID: "com.spotify.client", name: "Spotify"
+        )
+
+        XCTAssertTrue(airplay.isAirPlay)
+        XCTAssertFalse(spotify.isAirPlay)
+        XCTAssertEqual(AudioProcessMonitor.preferred(from: [airplay, spotify])?.name, "Spotify")
+        XCTAssertEqual(AudioProcessMonitor.preferred(from: [airplay])?.name, "AirPlayXPCHelper")
+    }
+}

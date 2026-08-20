@@ -7,6 +7,95 @@ import SwiftUI
 /// Заряд AirPods система отдаёт только через `system_profiler`, а он думает
 /// секунду-другую, поэтому запускается в фоне и только по событию подключения
 /// либо раз в несколько минут.
+/// Категория устройства. Определяется по классу из протокола Bluetooth,
+/// а не по названию: «AirPods Максима» и «Наушники Гюзель» одинаково
+/// являются аудиоустройствами, как их ни назови.
+enum BluetoothCategory: String {
+    case headphones
+    case speaker
+    case phone
+    case watch
+    case keyboard
+    case mouse
+    case other
+
+    var symbol: String {
+        switch self {
+        case .headphones: "airpods"
+        case .speaker: "hifispeaker.fill"
+        case .phone: "iphone"
+        case .watch: "applewatch"
+        case .keyboard: "keyboard"
+        case .mouse: "magicmouse"
+        case .other: "dot.radiowaves.left.and.right"
+        }
+    }
+
+    var disconnectedSymbol: String {
+        switch self {
+        case .headphones: "airpods.gen3"
+        case .phone: "iphone.slash"
+        default: symbol
+        }
+    }
+
+    var connectedTitle: String {
+        switch self {
+        case .headphones: "Наушники подключены"
+        case .speaker: "Колонка подключена"
+        case .phone: "Телефон рядом"
+        case .watch: "Часы подключены"
+        case .keyboard: "Клавиатура подключена"
+        case .mouse: "Мышь подключена"
+        case .other: "Устройство подключено"
+        }
+    }
+
+    var disconnectedTitle: String {
+        switch self {
+        case .headphones: "Наушники отключены"
+        case .speaker: "Колонка отключена"
+        case .phone: "Телефон отключился"
+        case .watch: "Часы отключены"
+        case .keyboard: "Клавиатура отключена"
+        case .mouse: "Мышь отключена"
+        case .other: "Устройство отключено"
+        }
+    }
+
+    /// Классы из спецификации Bluetooth: старший говорит о роде устройства,
+    /// младший уточняет — наушники это или колонка.
+    static func from(major: UInt32, minor: UInt32, name: String) -> BluetoothCategory {
+        switch major {
+        case 0x02: return .phone
+        case 0x04:
+            // 0x01 — гарнитура, 0x06 — наушники, 0x05 — громкоговоритель.
+            return [0x01, 0x06].contains(minor) ? .headphones : .speaker
+        case 0x05:
+            if minor & 0x10 != 0 { return .keyboard }
+            if minor & 0x20 != 0 { return .mouse }
+            return .other
+        case 0x07: return .watch
+        default:
+            return fromName(name)
+        }
+    }
+
+    /// Запасной путь: некоторые устройства класс не сообщают.
+    static func fromName(_ name: String) -> BluetoothCategory {
+        let lower = name.lowercased()
+        if lower.contains("airpods") || lower.contains("headphone") || lower.contains("наушник") {
+            return .headphones
+        }
+        if lower.contains("iphone") || lower.contains("телефон") { return .phone }
+        if lower.contains("watch") || lower.contains("часы") { return .watch }
+        if lower.contains("keyboard") || lower.contains("клавиат") { return .keyboard }
+        if lower.contains("mouse") || lower.contains("мышь") { return .mouse }
+        if lower.contains("speaker") || lower.contains("колонка") { return .speaker }
+        return .other
+    }
+}
+
 /// Класс намеренно не изолирован целиком: IOBluetooth зовёт селекторы со
 /// своего потока, и на изолированном классе это заканчивалось немедленным
 /// падением приложения. Внутрь главного потока переходим сами.
@@ -113,14 +202,19 @@ final class BluetoothActivityProvider: NSObject {
     @MainActor
     private func present(device: IOBluetoothDevice, connected: Bool) {
         let name = device.name ?? "Устройство"
+        let category = BluetoothCategory.from(
+            major: device.deviceClassMajor,
+            minor: device.deviceClassMinor,
+            name: name
+        )
         let battery = device.addressString.flatMap { batteries[$0]?.displayValue }
 
         center.upsert(
             Activity(
                 id: "bluetooth.\(device.addressString ?? name)",
                 title: name,
-                subtitle: connected ? "Подключено" : "Отключено",
-                symbol: Self.symbol(for: name, connected: connected),
+                subtitle: connected ? category.connectedTitle : category.disconnectedTitle,
+                symbol: connected ? category.symbol : category.disconnectedSymbol,
                 tint: connected ? .blue : .gray,
                 priority: .normal,
                 indicator: battery.map { Activity.Indicator.text("\($0)%") } ?? .none,
@@ -218,16 +312,6 @@ final class BluetoothActivityProvider: NSObject {
         return Int(tail)
     }
 
-    private static func symbol(for name: String, connected: Bool) -> String {
-        let lower = name.lowercased()
-        if lower.contains("airpods") {
-            return connected ? "airpods" : "airpods.gen3"
-        }
-        if lower.contains("mouse") || lower.contains("magic mouse") { return "magicmouse" }
-        if lower.contains("keyboard") { return "keyboard" }
-        if lower.contains("watch") { return "applewatch" }
-        return connected ? "headphones" : "headphones.slash"
-    }
 }
 
 /// Уровни заряда устройства. Вынесено наружу, чтобы разбор можно было

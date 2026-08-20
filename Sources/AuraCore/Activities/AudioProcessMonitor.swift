@@ -21,7 +21,25 @@ enum AudioProcessMonitor {
         var icon: NSImage? {
             NSRunningApplication(processIdentifier: pid)?.icon
         }
+
+        /// Звук пришёл с другого устройства по AirPlay — с телефона или планшета.
+        ///
+        /// Это единственный способ показать в вырезе музыку с айфона: когда
+        /// он транслирует на Mac, звук действительно проходит через нашу
+        /// звуковую подсистему, и его видно наравне с local-приложениями.
+        /// Просто играющий рядом телефон Mac не видит никак.
+        var isAirPlay: Bool {
+            guard let bundleID else { return false }
+            return AudioProcessMonitor.airPlayBundleIDs.contains(bundleID)
+        }
     }
+
+    static let airPlayBundleIDs: Set<String> = [
+        "com.apple.AirPlayUIAgent",
+        "com.apple.AirPlayXPCHelper",
+        "com.apple.sharingd",
+        "com.apple.controlcenter",
+    ]
 
     /// Приложения, чей звук идёт на выход прямо сейчас.
     static func playingSources() -> [Source] {
@@ -76,6 +94,12 @@ enum AudioProcessMonitor {
         "com.apple.SiriNCService",
         "dev.kekch.aura",
     ]
+
+    /// Приложение, играющее само, важнее системного посредника: если звучит
+    /// и Spotify, и AirPlay, показать нужно Spotify.
+    static func preferred(from sources: [Source]) -> Source? {
+        sources.first { !$0.isAirPlay } ?? sources.first
+    }
 
     private static func isRunningOutput(_ object: AudioObjectID) -> Bool {
         var address = AudioObjectPropertyAddress(
