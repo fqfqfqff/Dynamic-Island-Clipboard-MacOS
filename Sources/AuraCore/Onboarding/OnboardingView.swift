@@ -56,7 +56,7 @@ struct OnboardingView: View {
 
     private var footer: some View {
         HStack {
-            Text("Разрешения можно выдать и позже — в настройках.")
+            Text(t("ui.0510af92", "Разрешения можно выдать и позже — в настройках."))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Spacer()
@@ -154,7 +154,7 @@ struct OnboardingView: View {
                     Text(item.title)
                         .font(.system(size: 13, weight: .semibold))
                     if item.optional {
-                        Text("необязательно")
+                        Text(t("ui.8bf2ee29", "необязательно"))
                             .font(.system(size: 9, weight: .medium))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)

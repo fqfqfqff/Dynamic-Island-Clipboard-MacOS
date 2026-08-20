@@ -14,16 +14,16 @@ struct ActivitiesPane: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Нет доступа к плееру")
+                Text(t("ui.32f1084f", "Нет доступа к плееру"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.9))
-                Text("Разрешите Aura управлять им в «Конфиденциальность → Автоматизация»")
+                Text(t("ui.3c388255", "Разрешите Aura управлять им в «Конфиденциальность → Автоматизация»"))
                     .font(.system(size: 9))
                     .foregroundStyle(.white.opacity(0.45))
                     .lineLimit(2)
             }
             Spacer(minLength: 4)
-            Button("Разрешить") {
+            Button(t("ui.616bb19d", "Разрешить")) {
                 if let url = URL(string:
                     "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
                 ) {

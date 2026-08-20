@@ -90,7 +90,7 @@ final class NowPlayingProvider: ObservableObject {
 
     private var ticker: Timer?
     private var deniedPlayers: Set<String> = []
-    private var compiledScripts: [String: NSAppleScript] = [:]
+    private let runner = AppleScriptRunner()
     private var refreshStartedAt: Date?
     private let refreshTimeout: TimeInterval = 15
     private var artworkCache: (key: String, image: NSImage)?
@@ -439,23 +439,13 @@ final class NowPlayingProvider: ObservableObject {
         key: String,
         completion: @escaping (ScriptOutcome) -> Void
     ) {
-        let cached = compiledScripts[key]
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            let script = cached ?? NSAppleScript(source: source)
-            var error: NSDictionary?
-            let output = script?.executeAndReturnError(&error)
-
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    if let script, cached == nil { self.compiledScripts[key] = script }
-
-                    if let error {
-                        let code = error[NSAppleScript.errorNumber] as? Int ?? 0
-                        completion(code == -1743 ? .denied : .failed(code))
-                    } else {
-                        completion(.success(output?.stringValue ?? ""))
-                    }
+        Task { [runner] in
+            let outcome = await runner.run(source: source, key: key)
+            await MainActor.run {
+                switch outcome {
+                case .success(let text): completion(.success(text))
+                case .denied: completion(.denied)
+                case .failed(let code): completion(.failed(code))
                 }
             }
         }

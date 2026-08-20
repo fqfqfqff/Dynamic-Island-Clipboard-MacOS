@@ -45,9 +45,9 @@ final class AudioSpectrumMonitor: ObservableObject {
         peaks = Array(repeating: 1e-6, count: bandCount)
     }
 
-    deinit {
-        if let fftSetup { vDSP_destroy_fftsetup(fftSetup) }
-    }
+    /// Освобождать указатель БПФ в `deinit` нельзя: он не `Sendable`, а
+    /// `deinit` не изолирован. Освобождаем при остановке — она всё равно
+    /// вызывается перед уничтожением.
 
     // MARK: - Запуск
 
@@ -79,6 +79,11 @@ final class AudioSpectrumMonitor: ObservableObject {
             AudioHardwareDestroyProcessTap(tapID)
             tapID = kAudioObjectUnknown
         }
+        if let fftSetup {
+            vDSP_destroy_fftsetup(fftSetup)
+            self.fftSetup = nil
+        }
+
         isRunning = false
         levels = Array(repeating: 0, count: bandCount)
     }

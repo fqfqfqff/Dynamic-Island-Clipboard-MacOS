@@ -11,7 +11,9 @@ enum Permissions {
     /// руками — macOS не даёт выдать это разрешение из приложения.
     @discardableResult
     static func requestAccessibility() -> Bool {
-        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        // Ключ объявлен в заголовках как переменная, хотя по смыслу константа.
+        // Берём его значение здесь и дальше работаем со строкой.
+        let key = "AXTrustedCheckOptionPrompt"
         return AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
     }
 

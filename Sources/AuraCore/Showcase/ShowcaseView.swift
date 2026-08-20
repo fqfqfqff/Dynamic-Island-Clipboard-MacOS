@@ -99,7 +99,7 @@ struct ShowcaseView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            Text("пробел — пауза · ← → трек · ↑ ↓ громкость · esc — закрыть")
+            Text(t("ui.e04ecaf6", "пробел — пауза · ← → трек · ↑ ↓ громкость · esc — закрыть"))
                 .font(.system(size: 11))
                 .foregroundStyle(.white.opacity(0.2))
                 .padding(.bottom, 28)
@@ -300,7 +300,7 @@ struct ShowcaseView: View {
             Image(systemName: "waveform")
                 .font(.system(size: 46, weight: .ultraLight))
                 .foregroundStyle(.white.opacity(0.28))
-            Text("Ничего не играет")
+            Text(t("ui.7eaefe89", "Ничего не играет"))
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(.white.opacity(0.4))
         }

@@ -8,11 +8,11 @@ struct ShelfPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Полка")
+                Text(t("ui.e7af584e", "Полка"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.35))
                 Spacer()
-                Button("Очистить") { shelf.clear() }
+                Button(t("ui.98b2073e", "Очистить")) { shelf.clear() }
                     .buttonStyle(.plain)
                     .font(.system(size: 10))
                     .foregroundStyle(.white.opacity(0.4))
@@ -53,12 +53,12 @@ struct ShelfPane: View {
         .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
         .onTapGesture(count: 2) { NSWorkspace.shared.open(item.url) }
         .contextMenu {
-            Button("Открыть") { NSWorkspace.shared.open(item.url) }
-            Button("Показать в Finder") {
+            Button(t("ui.1259571a", "Открыть")) { NSWorkspace.shared.open(item.url) }
+            Button(t("ui.9e3e457e", "Показать в Finder")) {
                 NSWorkspace.shared.activateFileViewerSelecting([item.url])
             }
             Divider()
-            Button("Убрать с полки") { shelf.remove(item) }
+            Button(t("ui.82c47049", "Убрать с полки")) { shelf.remove(item) }
         }
         .help(item.url.path)
     }

@@ -15,6 +15,13 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Aura"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 
+# Ресурсы SwiftPM лежат отдельными бандлами рядом с бинарём — без них
+# приложение остаётся без переводов.
+BIN_DIR="$(dirname "$BIN")"
+for bundle in "$BIN_DIR"/*.bundle; do
+    [ -e "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
+done
+
 # Стабильный сертификат, если он создан (Scripts/make-cert.sh), иначе ad-hoc.
 # С ad-hoc подписью CDHash меняется при каждой сборке и выданное разрешение
 # Accessibility слетает — см. риск R3 в PLAN.md.

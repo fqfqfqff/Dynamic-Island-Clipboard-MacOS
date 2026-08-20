@@ -10,7 +10,7 @@ import SwiftUI
 /// Категория устройства. Определяется по классу из протокола Bluetooth,
 /// а не по названию: «AirPods Максима» и «Наушники Гюзель» одинаково
 /// являются аудиоустройствами, как их ни назови.
-enum BluetoothCategory: String {
+enum BluetoothCategory: String, Sendable {
     case headphones
     case speaker
     case phone
@@ -96,9 +96,11 @@ enum BluetoothCategory: String {
     }
 }
 
-/// Класс намеренно не изолирован целиком: IOBluetooth зовёт селекторы со
-/// своего потока, и на изолированном классе это заканчивалось немедленным
-/// падением приложения. Внутрь главного потока переходим сами.
+/// Класс живёт на главном потоке, а колбэки IOBluetooth помечены
+/// `nonisolated`: система зовёт их со своего потока, и попытка проверить
+/// изоляцию прямо там заканчивалась падением. Данные с устройства снимаются
+/// на месте вызова, а дальше уходят на главный поток уже значениями.
+@MainActor
 final class BluetoothActivityProvider: NSObject {
     private let center: ActivityCenter
     private var connectionObserver: IOBluetoothUserNotification?
@@ -112,7 +114,6 @@ final class BluetoothActivityProvider: NSObject {
         super.init()
     }
 
-    @MainActor
     func start() {
         stop()
 
@@ -143,7 +144,6 @@ final class BluetoothActivityProvider: NSObject {
 
     /// Уведомление о любом новом подключении. Отключение ловится отдельно,
     /// у каждого устройства своим наблюдателем.
-    @MainActor
     private func registerObservers() {
         connectionObserver = IOBluetoothDevice.register(
             forConnectNotifications: self,
@@ -151,7 +151,6 @@ final class BluetoothActivityProvider: NSObject {
         )
     }
 
-    @MainActor
     func stop() {
         connectionObserver?.unregister()
         connectionObserver = nil
@@ -162,56 +161,51 @@ final class BluetoothActivityProvider: NSObject {
 
     // MARK: - События
 
-    @objc private func deviceConnected(
+    @objc nonisolated private func deviceConnected(
         _ notification: IOBluetoothUserNotification,
         device: IOBluetoothDevice
     ) {
-        DispatchQueue.main.async { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, let address = device.addressString else { return }
-                self.knownConnected.insert(address)
-
-                device.register(
-                    forDisconnectNotification: self,
-                    selector: #selector(BluetoothActivityProvider.deviceDisconnected(_:device:))
-                )
-
-                self.present(device: device, connected: true)
-                // Заряд появляется не сразу после соединения.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                    MainActor.assumeIsolated { self?.readBatteries() }
-                }
-            }
-        }
-    }
-
-    @objc private func deviceDisconnected(
-        _ notification: IOBluetoothUserNotification,
-        device: IOBluetoothDevice
-    ) {
-        DispatchQueue.main.async { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, let address = device.addressString else { return }
-                self.knownConnected.remove(address)
-                self.batteries[address] = nil
-                self.present(device: device, connected: false)
-            }
-        }
-    }
-
-    @MainActor
-    private func present(device: IOBluetoothDevice, connected: Bool) {
-        let name = device.name ?? "Устройство"
-        let category = BluetoothCategory.from(
-            major: device.deviceClassMajor,
-            minor: device.deviceClassMinor,
-            name: name
+        // Само устройство через границу потока не отправляем: снимаем с него
+        // всё нужное здесь и передаём дальше простые значения.
+        let snapshot = DeviceSnapshot(device: device)
+        device.register(
+            forDisconnectNotification: self,
+            selector: #selector(BluetoothActivityProvider.deviceDisconnected(_:device:))
         )
-        let battery = device.addressString.flatMap { batteries[$0]?.displayValue }
+
+        Task { @MainActor [weak self] in
+            guard let self, let address = snapshot.address else { return }
+            self.knownConnected.insert(address)
+            self.present(snapshot, connected: true)
+
+            // Заряд появляется не сразу после соединения.
+            try? await Task.sleep(for: .seconds(3))
+            self.readBatteries()
+        }
+    }
+
+    @objc nonisolated private func deviceDisconnected(
+        _ notification: IOBluetoothUserNotification,
+        device: IOBluetoothDevice
+    ) {
+        let snapshot = DeviceSnapshot(device: device)
+
+        Task { @MainActor [weak self] in
+            guard let self, let address = snapshot.address else { return }
+            self.knownConnected.remove(address)
+            self.batteries[address] = nil
+            self.present(snapshot, connected: false)
+        }
+    }
+
+    private func present(_ device: DeviceSnapshot, connected: Bool) {
+        let name = device.name
+        let category = device.category
+        let battery = device.address.flatMap { batteries[$0]?.displayValue }
 
         center.upsert(
             Activity(
-                id: "bluetooth.\(device.addressString ?? name)",
+                id: "bluetooth.\(device.address ?? name)",
                 title: name,
                 subtitle: connected ? category.connectedTitle : category.disconnectedTitle,
                 symbol: connected ? category.symbol : category.disconnectedSymbol,
@@ -225,13 +219,11 @@ final class BluetoothActivityProvider: NSObject {
 
     // MARK: - Заряд
 
-    @MainActor
     private func connectedDevices() -> [IOBluetoothDevice] {
         (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? [])
             .filter { $0.isConnected() }
     }
 
-    @MainActor
     private func readBatteries() {
         guard !isReadingBattery, !connectedDevices().isEmpty else { return }
         isReadingBattery = true
@@ -312,6 +304,29 @@ final class BluetoothActivityProvider: NSObject {
         return Int(tail)
     }
 
+}
+
+/// Снимок устройства: только те данные, которые нужны для показа.
+/// Сам `IOBluetoothDevice` между потоками не передаётся — он для этого
+/// не предназначен, и строгая проверка Swift 6 на это справедливо ругается.
+struct DeviceSnapshot: Sendable {
+    let name: String
+    let address: String?
+    let category: BluetoothCategory
+
+    /// Собирается прямо в колбэке IOBluetooth, на его потоке: читаем
+    /// свойства устройства там же, где их получили, и дальше несём
+    /// только значения.
+    nonisolated init(device: IOBluetoothDevice) {
+        let name = device.name ?? "Устройство"
+        self.name = name
+        self.address = device.addressString
+        self.category = BluetoothCategory.from(
+            major: device.deviceClassMajor,
+            minor: device.deviceClassMinor,
+            name: name
+        )
+    }
 }
 
 /// Уровни заряда устройства. Вынесено наружу, чтобы разбор можно было

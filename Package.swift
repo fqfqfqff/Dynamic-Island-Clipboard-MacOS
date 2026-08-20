@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Aura",
+    defaultLocalization: "en",
     platforms: [.macOS("14.4")],
     products: [
         // Заставка собирается динамической библиотекой и упаковывается
@@ -21,7 +22,8 @@ let package = Package(
         .target(
             name: "AuraCore",
             path: "Sources/AuraCore",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            resources: [.process("Resources")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
             name: "AuraSaver",

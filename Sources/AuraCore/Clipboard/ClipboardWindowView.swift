@@ -76,10 +76,10 @@ struct ClipboardWindowView: View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.uturn.backward")
                 .foregroundStyle(.secondary)
-            Text("История очищена")
+            Text(t("ui.051ea779", "История очищена"))
                 .font(.system(size: 11, weight: .medium))
             Spacer()
-            Button("Вернуть") { clipboard.undoClear() }
+            Button(t("ui.c7aaa967", "Вернуть")) { clipboard.undoClear() }
                 .font(.system(size: 11))
             Button {
                 clipboard.forgetUndo()
@@ -99,14 +99,14 @@ struct ClipboardWindowView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Aura пока только копирует, но не вставляет")
+                Text(t("ui.eb374ed9", "Aura пока только копирует, но не вставляет"))
                     .font(.system(size: 11, weight: .medium))
-                Text("Разрешите управление в «Конфиденциальность и безопасность → Универсальный доступ»")
+                Text(t("ui.2b793b9a", "Разрешите управление в «Конфиденциальность и безопасность → Универсальный доступ»"))
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("Открыть") {
+            Button(t("ui.1259571a", "Открыть")) {
                 settings.didAskAccessibility = true
                 Permissions.requestAccessibility()
                 Permissions.openAccessibilitySettings()
@@ -177,7 +177,7 @@ struct ClipboardWindowView: View {
             Text(query.isEmpty ? "История пуста" : "Ничего не найдено")
                 .font(.system(size: 13, weight: .medium))
             if query.isEmpty {
-                Text("Скопируйте что-нибудь — оно появится здесь")
+                Text(t("ui.8e26e1a9", "Скопируйте что-нибудь — оно появится здесь"))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }

@@ -75,7 +75,7 @@ struct SettingsView: View {
             group("Форма") {
                 slider("Скругление снизу", $settings.bottomCornerRadius, 0...40, "pt")
                 slider("Ширина боковых слотов", $settings.accessorySlotWidth, 28...80, "pt")
-                Toggle("Вывернутые верхние углы", isOn: $settings.showWings)
+                Toggle(t("ui.7749cde9", "Вывернутые верхние углы"), isOn: $settings.showWings)
                 hint("Вывернутые углы делают панель как бы вытекающей из выреза.")
             }
 
@@ -86,7 +86,7 @@ struct SettingsView: View {
             }
 
             group("Отклик на курсор") {
-                Toggle("Реагировать на приближение", isOn: $settings.reactToProximity)
+                Toggle(t("ui.e021a79c", "Реагировать на приближение"), isOn: $settings.reactToProximity)
                 if settings.reactToProximity {
                     slider("Радиус реакции", $settings.proximityReach, 60...400, "pt")
                     hint("Чем ближе и быстрее курсор, тем резвее раскрывается остров.")
@@ -94,9 +94,9 @@ struct SettingsView: View {
             }
 
             group("Жесты") {
-                Toggle("Прокрутка над вырезом меняет громкость", isOn: $settings.scrollAdjustsVolume)
-                Toggle("Прокрутка вбок переключает трек", isOn: $settings.scrollSwitchesTrack)
-                Toggle("Двойной клик ставит на паузу", isOn: $settings.doubleClickTogglesPlayback)
+                Toggle(t("ui.6da0aa2e", "Прокрутка над вырезом меняет громкость"), isOn: $settings.scrollAdjustsVolume)
+                Toggle(t("ui.cf016813", "Прокрутка вбок переключает трек"), isOn: $settings.scrollSwitchesTrack)
+                Toggle(t("ui.74eee7cc", "Двойной клик ставит на паузу"), isOn: $settings.doubleClickTogglesPlayback)
             }
 
             group("Движение") {
@@ -109,19 +109,19 @@ struct SettingsView: View {
             }
 
             group("Оформление панели") {
-                Toggle("Подсказка-стрелка при наведении", isOn: $settings.showChevronHint)
-                Toggle("Тень под панелью", isOn: $settings.showShadow)
-                Toggle("Тонкая обводка", isOn: $settings.showBorder)
+                Toggle(t("ui.96a6c958", "Подсказка-стрелка при наведении"), isOn: $settings.showChevronHint)
+                Toggle(t("ui.06462a53", "Тень под панелью"), isOn: $settings.showShadow)
+                Toggle(t("ui.67c2e385", "Тонкая обводка"), isOn: $settings.showBorder)
                 slider("Размытие подложки", $settings.backdropBlur, 0...120, "pt")
                 slider("Яркость подложки", $settings.backdropStrength, 0...1, "")
             }
 
             group("Правый значок у выреза") {
                 Picker("", selection: $settings.trailingSlotStyle) {
-                    Text("Полоски звука").tag("bars")
-                    Text("Кольцо прогресса").tag("progress")
-                    Text("Текст").tag("text")
-                    Text("Ничего").tag("none")
+                    Text(t("ui.7f053917", "Полоски звука")).tag("bars")
+                    Text(t("ui.bb14d99c", "Кольцо прогресса")).tag("progress")
+                    Text(t("ui.93970437", "Текст")).tag("text")
+                    Text(t("ui.a46dd922", "Ничего")).tag("none")
                 }
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
@@ -143,9 +143,9 @@ struct SettingsView: View {
             }
 
             group("Элементы") {
-                Toggle("Полоса длительности", isOn: $settings.showSeekBar)
-                Toggle("Показывать оставшееся время", isOn: $settings.showRemainingTime)
-                Toggle("Кнопки управления", isOn: $settings.showControls)
+                Toggle(t("ui.2bd0d76a", "Полоса длительности"), isOn: $settings.showSeekBar)
+                Toggle(t("ui.85474f45", "Показывать оставшееся время"), isOn: $settings.showRemainingTime)
+                Toggle(t("ui.55296ac4", "Кнопки управления"), isOn: $settings.showControls)
                 Stepper("Полосок эквалайзера: \(settings.barCount)",
                         value: $settings.barCount, in: 3...9)
             }
@@ -158,9 +158,9 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 22) {
             group("Фон") {
                 Picker("", selection: $settings.backgroundStyle) {
-                    Text("Обложка").tag("artwork")
-                    Text("Градиент").tag("gradient")
-                    Text("Чёрный").tag("solid")
+                    Text(t("ui.a0d610b7", "Обложка")).tag("artwork")
+                    Text(t("ui.4f7a89ea", "Градиент")).tag("gradient")
+                    Text(t("ui.24587a10", "Чёрный")).tag("solid")
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -176,10 +176,10 @@ struct SettingsView: View {
 
             group("Стекло") {
                 Picker("", selection: $settings.glassStyle) {
-                    Text("Обычное").tag("regular")
-                    Text("Прозрачное").tag("clear")
-                    Text("С подкраской").tag("tinted")
-                    Text("Выключено").tag("off")
+                    Text(t("ui.64962a2f", "Обычное")).tag("regular")
+                    Text(t("ui.5a632c81", "Прозрачное")).tag("clear")
+                    Text(t("ui.52335e29", "С подкраской")).tag("tinted")
+                    Text(t("ui.d934aed1", "Выключено")).tag("off")
                 }
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
@@ -188,8 +188,8 @@ struct SettingsView: View {
 
             group("Акцент") {
                 Picker("", selection: $settings.accentSource) {
-                    Text("С обложки").tag("artwork")
-                    Text("Свой цвет").tag("fixed")
+                    Text(t("ui.20834a93", "С обложки")).tag("artwork")
+                    Text(t("ui.e51629de", "Свой цвет")).tag("fixed")
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -205,9 +205,9 @@ struct SettingsView: View {
 
             group("Шрифт") {
                 Picker("", selection: $settings.fontDesign) {
-                    Text("Системный").tag("default")
-                    Text("Скруглённый").tag("rounded")
-                    Text("С засечками").tag("serif")
+                    Text(t("ui.eca17171", "Системный")).tag("default")
+                    Text(t("ui.cdcedc31", "Скруглённый")).tag("rounded")
+                    Text(t("ui.8be1fdf7", "С засечками")).tag("serif")
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -221,21 +221,21 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 22) {
             group("Расположение") {
                 Picker("", selection: $settings.showcaseLayout) {
-                    Text("Обложка и текст рядом").tag("columns")
-                    Text("Всё по центру").tag("centered")
+                    Text(t("ui.77fb4be7", "Обложка и текст рядом")).tag("columns")
+                    Text(t("ui.3f02d687", "Всё по центру")).tag("centered")
                 }
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
-                Toggle("Часы в углу", isOn: $settings.showcaseClock)
+                Toggle(t("ui.861db551", "Часы в углу"), isOn: $settings.showcaseClock)
             }
 
             group("Текст песни") {
-                Toggle("Показывать текст", isOn: $settings.showLyrics)
+                Toggle(t("ui.a27f07b8", "Показывать текст"), isOn: $settings.showLyrics)
                 hint("Тексты берутся с открытой базы lrclib.net — туда уходят название трека, исполнитель и длительность. Работает для Музыки и Spotify.")
             }
 
             group("Когда показывать") {
-                Toggle("Показывать, когда я отошёл", isOn: $settings.showcaseOnIdle)
+                Toggle(t("ui.08def347", "Показывать, когда я отошёл"), isOn: $settings.showcaseOnIdle)
                 if settings.showcaseOnIdle {
                     slider("Через", $settings.showcaseIdleMinutes, 1...15, "мин")
                 }
@@ -249,19 +249,19 @@ struct SettingsView: View {
     private var behaviour: some View {
         VStack(alignment: .leading, spacing: 22) {
             group("Раскрытие") {
-                Toggle("Раскрывать при наведении", isOn: $settings.expandOnHover)
+                Toggle(t("ui.c44d80e0", "Раскрывать при наведении"), isOn: $settings.expandOnHover)
                 hint(settings.expandOnHover
                      ? "Панель откроется, как только курсор дойдёт до выреза."
                      : "При наведении вырез только подрастает, панель открывается по клику.")
             }
 
             group("Полноэкранный режим") {
-                Toggle("Прятать панель в полноэкранных приложениях", isOn: $settings.hideInFullScreen)
+                Toggle(t("ui.49649472", "Прятать панель в полноэкранных приложениях"), isOn: $settings.hideInFullScreen)
                 hint("Иначе macOS показывает верхнюю кромку окна поверх видео.")
             }
 
             group("Несколько мониторов") {
-                Toggle("Переносить панель на экран с курсором", isOn: $settings.followMouseScreen)
+                Toggle(t("ui.43000da8", "Переносить панель на экран с курсором"), isOn: $settings.followMouseScreen)
                 hint("Выключено — панель живёт на экране с физическим вырезом.")
             }
 
@@ -277,21 +277,21 @@ struct SettingsView: View {
     private var sources: some View {
         VStack(alignment: .leading, spacing: 22) {
             group("Что показывать в вырезе") {
-                Toggle("Музыка и любой звук", isOn: $settings.enableMusic)
-                Toggle("Громкость", isOn: $settings.enableVolume)
-                Toggle("Снимки экрана", isOn: $settings.enableScreenshots)
-                Toggle("Зарядка", isOn: $settings.enableBattery)
-                Toggle("Наушники и Bluetooth", isOn: $settings.enableBluetooth)
-                Toggle("Режим фокусирования", isOn: $settings.enableFocus)
-                Toggle("Ближайшая встреча из Календаря", isOn: $settings.enableCalendar)
-                Toggle("Уведомления приложений", isOn: $settings.enableNotifications)
+                Toggle(t("ui.7b8d5ba8", "Музыка и любой звук"), isOn: $settings.enableMusic)
+                Toggle(t("ui.62177700", "Громкость"), isOn: $settings.enableVolume)
+                Toggle(t("ui.d7068ba5", "Снимки экрана"), isOn: $settings.enableScreenshots)
+                Toggle(t("ui.fe2a94d0", "Зарядка"), isOn: $settings.enableBattery)
+                Toggle(t("ui.5b12b96d", "Наушники и Bluetooth"), isOn: $settings.enableBluetooth)
+                Toggle(t("ui.d6137b6d", "Режим фокусирования"), isOn: $settings.enableFocus)
+                Toggle(t("ui.963d7c59", "Ближайшая встреча из Календаря"), isOn: $settings.enableCalendar)
+                Toggle(t("ui.bd27d183", "Уведомления приложений"), isOn: $settings.enableNotifications)
                 if settings.enableNotifications {
                     hint("Требует Универсальный доступ. Системный баннер при этом остаётся — спрятать чужое окно приложение не может.")
                 }
             }
 
             group("Звук") {
-                Toggle("Полоски двигаются под реальный звук", isOn: $settings.reactToAudio)
+                Toggle(t("ui.205bf115", "Полоски двигаются под реальный звук"), isOn: $settings.reactToAudio)
                 hint("Требует разрешения на запись звука. Ничего не записывается — считаются только уровни частот.")
             }
 
@@ -311,18 +311,18 @@ struct SettingsView: View {
             group("История") {
                 Stepper("Хранить элементов: \(settings.clipboardLimit)",
                         value: $settings.clipboardLimit, in: 10...500, step: 10)
-                Toggle("Сохранять между запусками", isOn: $settings.persistClipboard)
+                Toggle(t("ui.13aa82ac", "Сохранять между запусками"), isOn: $settings.persistClipboard)
                 hint("Картинки живут только до выхода из приложения и на диск не пишутся.")
             }
 
             group("Вставка") {
-                Toggle("Вставлять сразу по клику", isOn: $settings.autoPaste)
+                Toggle(t("ui.ef37cbf6", "Вставлять сразу по клику"), isOn: $settings.autoPaste)
                 hint("Требует разрешения в «Конфиденциальность и безопасность → Универсальный доступ».")
             }
 
             group("Журнал") {
-                Toggle("Вести полный журнал копирований", isOn: $settings.archiveEverything)
-                Button("Показать журнал в Finder") { ClipboardArchive.revealInFinder() }
+                Toggle(t("ui.2b5d528e", "Вести полный журнал копирований"), isOn: $settings.archiveEverything)
+                Button(t("ui.cc93f407", "Показать журнал в Finder")) { ClipboardArchive.revealInFinder() }
                 hint("Записывает всё скопированное, кроме картинок, без ограничения. Содержимое из менеджеров паролей не попадает.")
             }
         }
@@ -333,7 +333,7 @@ struct SettingsView: View {
     private var system: some View {
         VStack(alignment: .leading, spacing: 22) {
             group("Запуск") {
-                Toggle("Запускать при входе в систему", isOn: Binding(
+                Toggle(t("ui.76872153", "Запускать при входе в систему"), isOn: Binding(
                     get: { launchAtLogin },
                     set: { newValue in
                         LaunchAtLogin.set(newValue)
@@ -344,8 +344,8 @@ struct SettingsView: View {
             }
 
             group("Разрешения") {
-                Button("Открыть экран настройки разрешений") { AppActions.showOnboarding() }
-                Button("Запросить разрешения заново") { settings.forgetPermissionPrompts() }
+                Button(t("ui.e67eddc1", "Открыть экран настройки разрешений")) { AppActions.showOnboarding() }
+                Button(t("ui.46ad51e9", "Запросить разрешения заново")) { settings.forgetPermissionPrompts() }
                 hint("Aura спрашивает разрешения один раз. Если вы отказали случайно — эта кнопка позволит спросить снова.")
             }
 
@@ -363,8 +363,8 @@ struct SettingsView: View {
             }
 
             group("Сброс") {
-                Button("Сбросить все настройки") { settings.resetToDefaults() }
-                Button("Выйти из Aura") { AppActions.quit() }
+                Button(t("ui.ac282097", "Сбросить все настройки")) { settings.resetToDefaults() }
+                Button(t("ui.2a2a0c98", "Выйти из Aura")) { AppActions.quit() }
             }
         }
     }
