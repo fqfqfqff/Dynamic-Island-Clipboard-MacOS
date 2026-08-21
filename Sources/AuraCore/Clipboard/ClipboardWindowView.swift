@@ -202,6 +202,25 @@ struct ClipboardWindowView: View {
             hint("↑↓", "выбрать")
             hint("esc", "закрыть")
             Spacer()
+
+            // Галочка стоит рядом с «вставить»: решение принимают в момент
+            // вставки, а не когда-то заранее в настройках.
+            Toggle(t("ui.c1e4a730", "Вставлять с оформлением"), isOn: $settings.pasteWithFormatting)
+                .toggleStyle(.checkbox)
+                .font(.system(size: 10))
+                .disabled(!selectionHasFormatting)
+                .help(selectionHasFormatting
+                      ? t("ui.c1e4a730", "Вставлять с оформлением")
+                      : "У выбранного элемента оформления нет — вставится обычным текстом.")
+
+            Button {
+                clipboard.pickColor()
+            } label: {
+                Image(systemName: "eyedropper")
+            }
+            .buttonStyle(.plain)
+            .help(t("ui.5d81c204", "Взять цвет с экрана"))
+
             Text("\(clipboard.items.count) в истории")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
@@ -308,6 +327,12 @@ struct ClipboardWindowView: View {
             return
         }
         archiveResults = ClipboardArchive.search(query)
+    }
+
+    /// Есть ли у выбранного элемента оформление, которое можно сохранить.
+    private var selectionHasFormatting: Bool {
+        guard let selection else { return false }
+        return items.first { $0.id == selection }?.hasFormatting ?? false
     }
 
     private func useSelected() {

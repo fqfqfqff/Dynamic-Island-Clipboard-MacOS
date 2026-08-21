@@ -15,6 +15,14 @@ struct ClipboardItem: Identifiable, Equatable {
     let sourceName: String?
     /// Закреплённые элементы держатся наверху и не вытесняются лимитом.
     var isPinned: Bool = false
+    /// Оформленный вариант текста, если он был в буфере.
+    ///
+    /// Хранится рядом с `kind`, а не внутри: одинаковый текст остаётся
+    /// одинаковым независимо от того, был ли он жирным, — иначе одна и та же
+    /// строка из разных приложений плодила бы дубли в истории.
+    var richText: Data?
+
+    var hasFormatting: Bool { richText != nil }
 
     static func == (lhs: ClipboardItem, rhs: ClipboardItem) -> Bool { lhs.id == rhs.id }
 

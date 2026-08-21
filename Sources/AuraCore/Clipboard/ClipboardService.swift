@@ -95,6 +95,28 @@ final class ClipboardService: ObservableObject {
         lastCleared = nil
     }
 
+    /// Пипетка: взять цвет с экрана и положить в буфер.
+    ///
+    /// Системный `NSColorSampler` рисует лупу сам и разрешений не требует —
+    /// это не снимок экрана, а выбор одной точки, и делает его система.
+    func pickColor(completion: (() -> Void)? = nil) {
+        NSColorSampler().show { color in
+            MainActor.assumeIsolated {
+                guard let color else { return }
+                let item = ClipboardItem(
+                    kind: .color(color),
+                    date: Date(),
+                    sourceName: t("ui.f30b8a19", "Пипетка")
+                )
+                self.items.insert(item, at: 0)
+                self.sortPinnedFirst()
+                self.persist()
+                self.copyToPasteboard(item)
+                completion?()
+            }
+        }
+    }
+
     func togglePin(_ item: ClipboardItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].isPinned.toggle()
@@ -114,12 +136,19 @@ final class ClipboardService: ObservableObject {
     }
 
     /// Кладёт элемент обратно в системный буфер.
-    func copyToPasteboard(_ item: ClipboardItem) {
+    ///
+    /// `plain` — вставить без оформления: срезать шрифты, цвета и размеры,
+    /// оставив голый текст. Это то, ради чего люди держат в голове
+    /// ⌥⇧⌘V — а половина приложений её и не понимает.
+    func copyToPasteboard(_ item: ClipboardItem, plain: Bool = true) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
         switch item.kind {
         case .text(let value):
+            if !plain, let rich = item.richText {
+                pasteboard.setData(rich, forType: .rtf)
+            }
             pasteboard.setString(value, forType: .string)
         case .link(let url):
             pasteboard.setString(url.absoluteString, forType: .string)
@@ -145,11 +174,16 @@ final class ClipboardService: ObservableObject {
 
         guard let kind = readKind(from: pasteboard) else { return }
 
-        let item = ClipboardItem(
+        var item = ClipboardItem(
             kind: kind,
             date: Date(),
             sourceName: NSWorkspace.shared.frontmostApplication?.localizedName
         )
+        // Оформление забираем сразу: второй раз в системном буфере его уже
+        // не будет — там окажется следующее скопированное.
+        if case .text = kind {
+            item.richText = pasteboard.data(forType: .rtf)
+        }
 
         if let first = items.first, first.hasSameContent(as: item) { return }
 

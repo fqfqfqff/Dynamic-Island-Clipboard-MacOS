@@ -110,7 +110,7 @@ final class ClipboardWindowController {
     }
 
     private func use(_ item: ClipboardItem) {
-        clipboard.copyToPasteboard(item)
+        clipboard.copyToPasteboard(item, plain: !settings.pasteWithFormatting)
         hide()
 
         guard settings.autoPaste else { return }
