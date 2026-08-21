@@ -15,12 +15,33 @@ struct ShowcaseView: View {
     private let clock = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                background
-                content(in: geometry.size)
+        // Без `GeometryReader`.
+        //
+        // Он сообщал размер, который не совпадал с настоящим окном, и вся
+        // витрина вместе с часами уезжала вниз на треть экрана. Центрирование
+        // не должно зависеть от того, что кто-то измерил: растянутая рамка
+        // ставит содержимое в середину сама, чем бы её ни наполнили.
+        ZStack {
+            background
+            content
+
+            // Часы и подсказка — слоями того же стека, а не наложением
+            // поверх него. Наложение цепляется за внешнюю рамку, а та
+            // оказывалась выше экрана, и оба слоя уезжали за край.
+            if settings.showcaseClock {
+                header
+                    .padding(.leading, 64)
+                    .padding(.top, 44)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+
+            Text(t("ui.e04ecaf6", "пробел — пауза · ← → трек · ↑ ↓ громкость · esc — закрыть"))
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.2))
+                .padding(.bottom, 30)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .onReceive(clock) { now = $0 }
         .contentShape(Rectangle())
@@ -57,11 +78,18 @@ struct ShowcaseView: View {
                 AuraTheme.gradient(settings.gradientPreset)
             } else if settings.backgroundStyle == "artwork",
                       let artwork = media.nowPlaying?.artwork {
+                // `opaque: true` заставляло размытие брать краевые пиксели
+                // и превращало обложку в огромное тёмное пятно посреди
+                // экрана. Масштаб с запасом прячет мягкие края размытия,
+                // которые иначе видны как круг.
                 Image(nsImage: artwork)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .blur(radius: 140, opaque: true)
-                    .opacity(0.5)
+                    // Растянуть сильно: квадратная обложка, размытая мягко,
+                    // читается на широком экране как тёмный круг посередине.
+                    .scaleEffect(2.6)
+                    .blur(radius: 130)
+                    .opacity(0.38)
                     .animation(.smooth(duration: 0.8), value: artwork)
             }
             LinearGradient(
@@ -74,56 +102,59 @@ struct ShowcaseView: View {
 
     // MARK: - Композиция
 
-    private func content(in size: CGSize) -> some View {
-        // Обложка занимает примерно треть высоты, но не разрастается
-        // на больших мониторах до нелепых размеров.
-        let artworkSide = min(340, max(200, size.height * 0.34))
-        let horizontalPadding = max(48, size.width * 0.06)
+    /// Композиция витрины.
+    ///
+    /// Размеры постоянные, а не вычисленные от экрана: витрина всегда
+    /// открывается во весь экран, а обложка в треть его высоты на большом
+    /// мониторе выглядит нелепо крупной.
+    /// Двести шестьдесят, а не треть высоты экрана: вместе с текстом песни
+    /// композиция должна помещаться и на тринадцатидюймовом ноутбуке,
+    /// иначе часы и подсказка уезжают за край.
+    private static let artworkSide: CGFloat = 260
 
-        // Композиция живёт ровно в центре экрана; часы и подсказка лежат
-        // отдельными слоями поверх, чтобы не смещать её собой.
-        return Group {
-            if let playing = media.nowPlaying {
-                composition(playing, artworkSide: artworkSide)
-                    .frame(maxWidth: min(1120, size.width - horizontalPadding * 2))
-            } else {
-                idle
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .overlay(alignment: .topLeading) {
-            if settings.showcaseClock {
-                header
-                    .padding(.leading, horizontalPadding)
-                    .padding(.top, max(28, size.height * 0.05))
-            }
-        }
-        .overlay(alignment: .bottom) {
-            Text(t("ui.e04ecaf6", "пробел — пауза · ← → трек · ↑ ↓ громкость · esc — закрыть"))
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.2))
-                .padding(.bottom, 28)
+    @ViewBuilder
+    private var content: some View {
+        if let playing = media.nowPlaying {
+            composition(playing, artworkSide: Self.artworkSide)
+                .frame(maxWidth: 1120)
+                .padding(.horizontal, 64)
+        } else {
+            idle
         }
     }
 
     /// Два макета: колонками — обложка и текст рядом; по центру — всё
-    /// вертикально, текст под треком.
+    /// вертикально.
+    ///
+    /// Пустая колонка текста больше не занимает места. Раньше она держала
+    /// сто пятьдесят точек всегда, даже когда текста нет вовсе, — и сдвигала
+    /// собой всю композицию.
     @ViewBuilder
     private func composition(
         _ playing: NowPlayingProvider.NowPlaying,
         artworkSide: CGFloat
     ) -> some View {
         if settings.showcaseLayout == "centered" {
-            VStack(spacing: 26) {
+            VStack(spacing: 22) {
                 trackColumn(playing, width: artworkSide, alignment: .center)
-                lyricsColumn(playing, height: 150, alignment: .center)
+                if hasLyrics(for: playing) {
+                    lyricsColumn(playing, alignment: .center)
+                }
             }
         } else {
-            HStack(alignment: .top, spacing: 56) {
+            HStack(alignment: .center, spacing: 56) {
                 trackColumn(playing, width: artworkSide)
-                lyricsColumn(playing, height: artworkSide)
+                if hasLyrics(for: playing) {
+                    lyricsColumn(playing, alignment: .leading)
+                }
             }
         }
+    }
+
+    private func hasLyrics(for playing: NowPlayingProvider.NowPlaying) -> Bool {
+        guard settings.showLyrics else { return false }
+        let triple = lyrics.triple(at: playing.elapsedNow() ?? 0)
+        return triple.current != nil || triple.next != nil || lyrics.isLoading
     }
 
     private var header: some View {
@@ -145,10 +176,13 @@ struct ShowcaseView: View {
         width: CGFloat,
         alignment: HorizontalAlignment = .leading
     ) -> some View {
-        VStack(alignment: alignment, spacing: 18) {
+        VStack(alignment: alignment, spacing: 14) {
             artwork(playing.artwork, side: width)
 
-            VStack(alignment: .leading, spacing: 4) {
+            // Выравнивание берётся из макета, а не зашито влево: в режиме
+            // «по центру» название и исполнитель прижимались к левому краю
+            // колонки, и по центру оказывалась только обложка.
+            VStack(alignment: alignment, spacing: 4) {
                 Text(playing.title)
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
@@ -160,6 +194,8 @@ struct ShowcaseView: View {
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
+            .multilineTextAlignment(alignment == .center ? .center : .leading)
+            .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
 
             TimelineView(.periodic(from: .now, by: 0.25)) { context in
                 progress(playing, at: context.date)
@@ -240,44 +276,43 @@ struct ShowcaseView: View {
         .buttonStyle(PressableButtonStyle())
     }
 
-    // MARK: - Правая колонка: текст песни
+    // MARK: - Текст песни
 
     /// Прошедшая строка приглушена, текущая крупная и яркая, следующая едва
-    /// намечена. Высота колонки задана заранее — иначе строки разной длины
-    /// дёргали бы всю композицию по вертикали.
+    /// намечена.
+    ///
+    /// Высота больше не задаётся заранее. Она задавалась, чтобы строки разной
+    /// длины не дёргали композицию, — но платой было то, что пустая колонка
+    /// занимала место всегда, даже когда текста нет. Вместо этого у каждой
+    /// строки своя постоянная высота: композиция не дрожит, а пустоты нет.
     private func lyricsColumn(
         _ playing: NowPlayingProvider.NowPlaying,
-        height: CGFloat,
         alignment: HorizontalAlignment = .leading
     ) -> some View {
         TimelineView(.periodic(from: .now, by: 0.3)) { context in
             let position = playing.elapsedNow(at: context.date) ?? 0
             let triple = lyrics.triple(at: position)
-            let hasLyrics = triple.current != nil || triple.next != nil
+            let centred = alignment == .center
 
-            VStack(alignment: alignment, spacing: 20) {
-                Spacer(minLength: 0)
-                if hasLyrics {
-                    lyric(triple.previous, size: 22, opacity: 0.25)
-                    lyric(triple.current, size: 36, opacity: 0.96, weight: .bold)
-                    lyric(triple.next, size: 22, opacity: 0.25)
-                } else {
-                    Text(lyrics.isLoading ? "ищем текст…" : "текста нет")
+            VStack(alignment: alignment, spacing: 12) {
+                if triple.current != nil || triple.next != nil {
+                    lyric(triple.previous, size: 19, opacity: 0.22, centred: centred)
+                    lyric(triple.current, size: 30, opacity: 0.95,
+                          weight: .semibold, centred: centred)
+                    lyric(triple.next, size: 19, opacity: 0.22, centred: centred)
+                } else if lyrics.isLoading {
+                    Text(t("ui.1c05e73b", "ищем текст…"))
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.14))
+                        .foregroundStyle(.white.opacity(0.18))
                 }
-                Spacer(minLength: 0)
             }
-            .frame(maxWidth: 520, alignment: alignment == .center ? .center : .leading)
-            .multilineTextAlignment(alignment == .center ? .center : .leading)
-            .animation(.smooth(duration: 0.4), value: triple.current)
+            .frame(maxWidth: 560, alignment: centred ? .center : .leading)
+            .multilineTextAlignment(centred ? .center : .leading)
+            // Меняется строка, а не вся колонка: анимация на всём блоке
+            // заставляла соседние строки ползать вместе с ней.
+            .animation(.smooth(duration: 0.45), value: triple.current)
         }
-        .frame(
-            maxWidth: 520,
-            minHeight: height,
-            maxHeight: height,
-            alignment: alignment == .center ? .center : .leading
-        )
+        .frame(maxWidth: 560)
     }
 
     @ViewBuilder
@@ -285,14 +320,25 @@ struct ShowcaseView: View {
         _ text: String?,
         size: CGFloat,
         opacity: Double,
-        weight: Font.Weight = .medium
+        weight: Font.Weight = .medium,
+        centred: Bool = false
     ) -> some View {
         Text(text ?? " ")
             .font(.system(size: size, weight: weight))
             .foregroundStyle(.white.opacity(text == nil ? 0 : opacity))
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Постоянная высота строки: без неё смена короткой строки
+            // на длинную двигает соседние.
+            .frame(
+                minHeight: size * 1.35,
+                alignment: centred ? .center : .leading
+            )
+            .frame(maxWidth: .infinity, alignment: centred ? .center : .leading)
+            // Новая строка не подменяет старую на месте, а проявляется:
+            // подмена текста внутри одного вида читается как подёргивание.
+            .id(text ?? "—")
+            .transition(.opacity.combined(with: .offset(y: 8)))
     }
 
     private var idle: some View {

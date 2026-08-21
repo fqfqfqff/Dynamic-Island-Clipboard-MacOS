@@ -41,6 +41,11 @@ final class LyricsProvider: ObservableObject {
         )
     }
 
+    /// Подставить строки вручную — для снимков интерфейса и тестов.
+    func inject(_ values: [Line]) {
+        lines = values
+    }
+
     func clear() {
         lines = []
         currentKey = nil

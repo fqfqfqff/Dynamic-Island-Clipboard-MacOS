@@ -215,6 +215,8 @@ public enum SnapshotScenes {
             peekHint(),
             notificationBadge(),
             longNames(),
+            showcaseColumns(),
+            showcaseCentered(),
         ]
     }
 
@@ -391,6 +393,45 @@ public enum SnapshotScenes {
             environment.activities.upsert(mediaActivity())
             environment.viewModel.state = .expanded
         }
+    }
+
+    // MARK: - Витрина
+
+    static let showcaseCanvas = CGSize(width: 1280, height: 800)
+
+    static func showcase(_ name: String, layout: String) -> SnapshotScene {
+        let environment = environment()
+        environment.settings.showcaseLayout = layout
+        environment.settings.showLyrics = true
+        environment.settings.showcaseClock = true
+        environment.media.inject(nowPlaying())
+        environment.lyrics.inject([
+            .init(time: 0, text: "Waiting in the car"),
+            .init(time: 90, text: "Waiting for a ride in the dark"),
+            .init(time: 120, text: "The night city grows"),
+            .init(time: 150, text: "Look and see her eyes"),
+        ])
+
+        return SnapshotScene(
+            name: name,
+            size: showcaseCanvas,
+            settleTime: 0.7,
+            content: AnyView(
+                ShowcaseView(onClose: {})
+                    .environmentObject(environment.media)
+                    .environmentObject(environment.lyrics)
+                    .environmentObject(environment.settings)
+                    .frame(width: showcaseCanvas.width, height: showcaseCanvas.height)
+            )
+        )
+    }
+
+    static func showcaseColumns() -> SnapshotScene {
+        showcase("20-showcase-columns", layout: "columns")
+    }
+
+    static func showcaseCentered() -> SnapshotScene {
+        showcase("21-showcase-centered", layout: "centered")
     }
 
     static func expandedActivities() -> SnapshotScene {
