@@ -6,7 +6,10 @@ import XCTest
 final class NotchViewModelTests: XCTestCase {
     private let screenFrame = CGRect(x: 0, y: 0, width: 1710, height: 1112)
 
-    private func makeModel(expandOnHover: Bool = false) -> NotchViewModel {
+    private func makeModel(
+        expandOnHover: Bool = false,
+        hasContent: Bool = true
+    ) -> NotchViewModel {
         let settings = SettingsStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
         settings.expandOnHover = expandOnHover
 
@@ -17,7 +20,9 @@ final class NotchViewModelTests: XCTestCase {
             isPhysical: true,
             screenFrame: screenFrame
         )
-        return NotchViewModel(geometry: geometry, settings: settings)
+        let model = NotchViewModel(geometry: geometry, settings: settings)
+        model.hasContent = hasContent
+        return model
     }
 
     func testCollapsedMatchesPhysicalNotchExactly() {
@@ -71,10 +76,14 @@ final class NotchViewModelTests: XCTestCase {
 
     func testExpandedSurvivesSmallMouseDrift() {
         let model = makeModel()
+        model.hasMedia = true
         model.expand()
 
-        // чуть ниже панели, но рядом — панель должна остаться открытой
-        model.handleMouseMoved(to: CGPoint(x: 855, y: screenFrame.maxY - 250))
+        // Чуть ниже панели, но рядом — она должна остаться открытой.
+        // Точка считается от её настоящей высоты: панель теперь ровно
+        // по содержимому, и фиксированное число здесь врало бы.
+        let justBelow = screenFrame.maxY - model.contentSize.height - 20
+        model.handleMouseMoved(to: CGPoint(x: 855, y: justBelow))
         XCTAssertEqual(model.state, .expanded)
 
         model.handleMouseMoved(to: CGPoint(x: 200, y: 100))
@@ -87,6 +96,66 @@ final class NotchViewModelTests: XCTestCase {
         XCTAssertEqual(model.state, .expanded)
         model.toggleExpanded()
         XCTAssertEqual(model.state, .collapsed)
+    }
+
+    // MARK: - Пустой остров
+
+    /// Раскрывать нечего — значит, и раскрывать незачем: панель без
+    /// содержимого это чёрный прямоугольник посреди экрана.
+    func testHoverOnlyGrowsWhenThereIsNothingToShow() {
+        let model = makeModel(expandOnHover: true, hasContent: false)
+        model.handleMouseMoved(to: CGPoint(x: 850, y: screenFrame.maxY - 10))
+        XCTAssertEqual(model.state, .peek)
+    }
+
+    func testTapDoesNotOpenEmptyPanel() {
+        let model = makeModel(hasContent: false)
+        model.toggleExpanded()
+        XCTAssertEqual(model.state, .peek)
+    }
+
+    /// Программное раскрытие правилу не подчиняется: файл, который тащат
+    /// на вырез, обязан увидеть, куда его бросают.
+    func testProgrammaticExpandIgnoresEmptiness() {
+        let model = makeModel(hasContent: false)
+        model.expand()
+        XCTAssertEqual(model.state, .expanded)
+    }
+
+    // MARK: - Мёртвая зона наведения
+
+    /// Регрессия, которая ломала наведение годами.
+    ///
+    /// Окно перехватывает мышь по всей видимой форме — вырез плюс компактные
+    /// слоты. Открывался остров по зоне вокруг голого выреза, которая уже.
+    /// Курсор, попавший в разницу, замораживал остров: мышь уже наша, а
+    /// открытия нет, и событий движения больше неоткуда взять.
+    func testHoverZoneCoversEverythingTheWindowGrabs() {
+        let model = makeModel()
+        model.compactAccessoryWidth = 88
+
+        let grabbed = model.interactiveRectOnScreen
+        XCTAssertTrue(
+            model.hoverRectOnScreen.contains(CGPoint(x: grabbed.minX + 1, y: grabbed.midY)),
+            "левый компактный слот перехватывает мышь, но не открывает остров"
+        )
+        XCTAssertTrue(
+            model.hoverRectOnScreen.contains(CGPoint(x: grabbed.maxX - 1, y: grabbed.midY)),
+            "правый компактный слот перехватывает мышь, но не открывает остров"
+        )
+    }
+
+    /// Наведение на компактный слот обязано открывать остров, а не молчать.
+    func testHoverOverAccessorySlotOpensIsland() {
+        let model = makeModel(expandOnHover: true)
+        model.compactAccessoryWidth = 88
+
+        let slot = CGPoint(
+            x: model.interactiveRectOnScreen.minX + 4,
+            y: screenFrame.maxY - 10
+        )
+        model.handleMouseMoved(to: slot)
+        XCTAssertEqual(model.state, .expanded)
     }
 }
 
@@ -122,13 +191,20 @@ extension NotchViewModelTests {
 }
 
 extension NotchViewModelTests {
-    /// Регрессия: панель выше окна-контейнера выдавливало вверх, и её
-    /// содержимое заезжало под вырез камеры.
-    func testExpandedPanelFitsInsideWindow() {
+    /// Панель под завязку — плеер, полка и полный список — обязана помещаться
+    /// в окно целиком: иначе её выдавливает вверх и содержимое заезжает
+    /// под вырез камеры.
+    private func fullModel() -> NotchViewModel {
         let model = makeModel()
-        model.settings.expandedHeight = 480   // максимум, доступный в настройках
+        model.hasMedia = true
+        model.hasShelf = true
+        model.extraRowCount = 9   // заведомо больше, чем панель показывает
         model.expand()
+        return model
+    }
 
+    func testExpandedPanelFitsInsideWindow() {
+        let model = fullModel()
         XCTAssertLessThanOrEqual(
             model.contentSize.height,
             NotchViewModel.windowSize.height,
@@ -137,11 +213,36 @@ extension NotchViewModelTests {
         XCTAssertLessThanOrEqual(model.contentSize.width, NotchViewModel.windowSize.width)
     }
 
-    func testInteractiveRectFitsWindowWhenExpanded() {
-        let model = makeModel()
-        model.settings.expandedHeight = 480
-        model.expand()
+    /// Окно под раскрытую панель теперь по размеру самой панели, а не
+    /// всегда 720×560: прозрачное окно система пересобирает целиком, и
+    /// площадь платится на каждом кадре. Панель обязана в него помещаться
+    /// при любом содержимом — иначе она обрежется по краю окна.
+    func testPanelAlwaysFitsItsWindow() {
+        for rows in [0, 1, 3, 9] {
+            for media in [false, true] {
+                let model = makeModel()
+                model.hasMedia = media
+                model.hasShelf = true
+                model.extraRowCount = rows
+                model.expand()
 
+                let window = model.expandedWindowSize
+                XCTAssertGreaterThanOrEqual(
+                    window.width, model.contentSize.width,
+                    "панель шире своего окна: строк \(rows), плеер \(media)"
+                )
+                XCTAssertGreaterThanOrEqual(
+                    window.height, model.contentSize.height,
+                    "панель выше своего окна: строк \(rows), плеер \(media)"
+                )
+                XCTAssertLessThanOrEqual(window.width, NotchViewModel.windowSize.width)
+                XCTAssertLessThanOrEqual(window.height, NotchViewModel.windowSize.height)
+            }
+        }
+    }
+
+    func testInteractiveRectFitsWindowWhenExpanded() {
+        let model = fullModel()
         let rect = model.interactiveRectInWindow
         XCTAssertGreaterThanOrEqual(rect.minY, 0, "зона клика не должна уходить за окно")
         XCTAssertEqual(rect.maxY, NotchViewModel.windowSize.height, accuracy: 0.001)
@@ -149,12 +250,11 @@ extension NotchViewModelTests {
 }
 
 extension NotchViewModelTests {
-    /// Регрессия: панель, которую сжали ниже её содержимого, выдавливала
-    /// обложку вверх — прямо под вырез камеры.
+    /// Регрессия: панель короче своего содержимого выдавливала обложку
+    /// вверх — прямо под вырез камеры.
     func testExpandedPanelNeverShorterThanItsContent() {
         let model = makeModel()
-        model.settings.expandedHeight = 120   // заведомо мало
-
+        model.hasMedia = true
         model.expand()
 
         let required = 38 + NotchViewModel.contentTopInset + model.playerContentHeight
@@ -162,11 +262,45 @@ extension NotchViewModelTests {
                                     "содержимое плеера обязано помещаться целиком")
     }
 
-    func testGenerousHeightIsRespected() {
-        let model = makeModel()
-        model.settings.expandedHeight = 460
-        model.expand()
-        XCTAssertEqual(model.contentSize.height, 460, accuracy: 0.001)
+    // MARK: - Панель по содержимому
+
+    /// Панель фиксированной высоты без музыки была чёрным прямоугольником
+    /// в треть экрана, наполовину пустым.
+    func testPanelWithoutMediaIsMuchShorterThanWithIt() {
+        let empty = makeModel()
+        empty.extraRowCount = 1
+        empty.expand()
+
+        let withMedia = makeModel()
+        withMedia.hasMedia = true
+        withMedia.extraRowCount = 1
+        withMedia.expand()
+
+        XCTAssertLessThan(
+            empty.contentSize.height,
+            withMedia.contentSize.height - 100,
+            "без плеера панель обязана быть заметно ниже, а не такой же"
+        )
+    }
+
+    /// Панель растёт под каждую строку: прокрутка внутри выреза — плохой
+    /// обмен, ради неё пришлось бы уже смотреть в панель.
+    func testEveryRowAddsHeight() {
+        func height(rows: Int) -> CGFloat {
+            let model = makeModel()
+            model.extraRowCount = rows
+            model.expand()
+            return model.contentSize.height
+        }
+
+        for rows in 1..<5 {
+            XCTAssertGreaterThan(
+                height(rows: rows + 1), height(rows: rows),
+                "строка \(rows + 1) не добавила высоты — список начнёт листаться"
+            )
+        }
+        // Сверху всё равно есть предел: панель не может быть выше окна.
+        XCTAssertLessThanOrEqual(height(rows: 40), NotchViewModel.windowSize.height)
     }
 }
 

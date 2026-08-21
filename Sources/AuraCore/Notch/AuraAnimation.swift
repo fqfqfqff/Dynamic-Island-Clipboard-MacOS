@@ -37,29 +37,59 @@ enum AuraAnimation {
 
     /// Мелкие отклики: наведение, нажатие.
     static let touch: Animation = .spring(response: 0.25, dampingFraction: 0.72)
+
+    // MARK: - Пружины по настройкам
+
+    /// Демпфирование по выбранному характеру: чем «живее», тем меньше
+    /// затухание и заметнее отыгрыш назад.
+    ///
+    /// Числа подобраны под ощущение островка на iPhone: там движение
+    /// заканчивается не мгновенной остановкой, а еле заметным отыгрышем
+    /// назад. Полностью задемпфированная пружина выглядит механической.
+    @MainActor
+    static func damping(_ settings: SettingsStore) -> Double {
+        0.92 - settings.animationBounce * 0.24
+    }
+
+    /// Ширина компактных слотов. Та же кривая, что у смены состояния:
+    /// две разные пружины на одном движении дают излом.
+    @MainActor
+    static func accessory(settings: SettingsStore) -> Animation {
+        .spring(response: 0.44 * settings.animationSpeed, dampingFraction: damping(settings))
+    }
 }
 
 extension AnyTransition {
+    /// Переходы острова — только по вертикали.
+    ///
+    /// Масштабирование «от центра» читается как движение вбок: содержимое
+    /// разъезжается в стороны, и остров выглядит дёрганым. Настоящий вырез
+    /// физически не двигается — двигаться может только то, что из-под него
+    /// выезжает. Поэтому всё появляется сверху вниз и уходит снизу вверх.
+
     /// Переход для содержимого раскрытой панели.
     static var auraContent: AnyTransition {
         .asymmetric(
             insertion: .opacity
-                .combined(with: .scale(scale: 0.95, anchor: .top))
+                .combined(with: .offset(y: -14))
                 .animation(AuraAnimation.contentIn),
-            removal: .opacity.animation(AuraAnimation.contentOut)
+            removal: .opacity
+                .combined(with: .offset(y: -10))
+                .animation(AuraAnimation.contentOut)
         )
     }
 
-    /// Переход для компактных значков по краям выреза: они не возникают
-    /// из ниоткуда, а будто выезжают из-под кромки.
+    /// Переход для компактных значков и подсказки-стрелки: они не возникают
+    /// из ниоткуда, а выезжают из-под кромки выреза вниз — и тем же путём
+    /// уходят обратно вверх. Смещение одинаковое в обе стороны: уход должен
+    /// читаться как обратная перемотка появления, а не как отдельный жест.
     static var auraCompact: AnyTransition {
         .asymmetric(
             insertion: .opacity
-                .combined(with: .scale(scale: 0.72, anchor: .top))
-                .combined(with: .offset(y: -6))
+                .combined(with: .offset(y: -12))
                 .animation(AuraAnimation.notch),
             removal: .opacity
-                .combined(with: .scale(scale: 0.9, anchor: .top))
+                .combined(with: .offset(y: -12))
                 .animation(AuraAnimation.contentOut)
         )
     }
