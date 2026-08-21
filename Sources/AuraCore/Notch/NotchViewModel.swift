@@ -35,14 +35,15 @@ final class NotchViewModel: ObservableObject {
     /// Ноль — активностей нет, и вырез неотличим от физического.
     @Published var compactAccessoryWidth: CGFloat = 0
 
-    /// Настоящая высота содержимого раскрытой панели, измеренная на месте.
+    /// Есть ли шапка со счётчиком непрочитанного и баннер отказа в доступе.
     ///
-    /// Формула ниже — только запасной вариант на первый кадр, пока измерять
-    /// нечего. Полагаться на неё нельзя: она не знает ни про шапку
-    /// с непрочитанным, ни про баннер отказа в доступе, ни про то, что
-    /// строка активности бывает в две строки текста. Каждый такой промах
-    /// оборачивался прокруткой внутри выреза.
-    @Published var measuredContentHeight: CGFloat = 0
+    /// Панель считает высоту заранее, а не измеряет: измерение здесь
+    /// замкнуто само на себя — высота содержимого ограничена высотой панели,
+    /// которая считается от высоты содержимого. Поэтому расчёт обязан знать
+    /// про всё, что в панели бывает, а разметка — держать эти высоты
+    /// постоянными. Числа лежат в `ActivitiesPane`.
+    @Published var hasNotificationHeader = false
+    @Published var hasAccessBanner = false
 
     /// Играет ли что-нибудь: от этого зависит, нужна ли панели высота
     /// под карточку плеера.
@@ -80,7 +81,14 @@ final class NotchViewModel: ObservableObject {
     ///
     /// Высота с запасом: панель, не помещавшаяся в окно, выдавливалась вверх и
     /// заезжала под вырез камеры.
-    static let windowSize = CGSize(width: 720, height: 560)
+    static let windowSize = CGSize(width: 720, height: 720)
+
+    /// Выше этого панель не растёт.
+    ///
+    /// Не равно высоте окна: под тенью и под запасом на промах курсора
+    /// у нижней кромки должно оставаться место, иначе они срезаются
+    /// краем окна вместе с последней строкой списка.
+    static let maxPanelHeight: CGFloat = 620
 
     /// Сколько окна нужно под раскрытую панель.
     ///
@@ -131,8 +139,6 @@ final class NotchViewModel: ObservableObject {
         )
     }
 
-    /// Высота одной строки списка активностей вместе с зазором.
-    private static let activityRowHeight: CGFloat = 50
     /// Панель растёт под все строки, а не под три.
     ///
     /// Прокрутка внутри выреза — плохой обмен: чтобы её увидеть, нужно уже
@@ -153,22 +159,13 @@ final class NotchViewModel: ObservableObject {
     /// с музыкой и списком — наоборот, список не помещался. Панель обязана
     /// быть ровно такой, сколько в ней содержимого.
     var expandedSize: CGSize {
-        if measuredContentHeight > 0 {
-            let height = geometry.menuBarHeight + Self.contentTopInset
-                + measuredContentHeight + Self.bottomPadding
-            return CGSize(
-                width: settings.expandedWidth,
-                height: min(max(height, Self.minimumPanelHeight), Self.windowSize.height)
-            )
-        }
-        return estimatedSize
-    }
-
-    /// Запасная оценка на первый кадр.
-    private var estimatedSize: CGSize {
         var height = geometry.menuBarHeight + Self.contentTopInset
         var blocks = 0
 
+        if hasAccessBanner {
+            height += ActivitiesPane.bannerHeight
+            blocks += 1
+        }
         if hasMedia {
             height += playerContentHeight
             blocks += 1
@@ -177,10 +174,16 @@ final class NotchViewModel: ObservableObject {
             height += Self.shelfHeight
             blocks += 1
         }
+        if hasNotificationHeader {
+            height += ActivitiesPane.headerHeight
+            blocks += 1
+        }
 
         let rows = min(extraRowCount, Self.maxVisibleRows)
         if rows > 0 {
-            height += CGFloat(rows) * Self.activityRowHeight
+            // Строки идут своим стеком с зазором в шесть точек между ними.
+            height += CGFloat(rows) * ActivitiesPane.rowHeight
+                + CGFloat(max(0, rows - 1)) * 6
             blocks += 1
         }
 
@@ -191,7 +194,7 @@ final class NotchViewModel: ObservableObject {
 
         return CGSize(
             width: settings.expandedWidth,
-            height: min(max(height, Self.minimumPanelHeight), Self.windowSize.height)
+            height: min(max(height, Self.minimumPanelHeight), Self.maxPanelHeight)
         )
     }
 

@@ -149,14 +149,6 @@ struct NotchRootView: View {
             AppActions.showQuickMenu()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onPreferenceChange(ContentHeightKey.self) { height in
-            // Порог: без него мелкое дрожание раскладки гоняет размер панели
-            // туда-обратно и анимация не успокаивается.
-            guard abs(height - viewModel.measuredContentHeight) > 1 else { return }
-            withAnimation(AuraAnimation.accessory(settings: settings)) {
-                viewModel.measuredContentHeight = height
-            }
-        }
         .onChange(of: media.nowPlaying?.title) { _, _ in
             artworkPulse = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { artworkPulse = false }
@@ -389,15 +381,6 @@ struct NotchRootView: View {
             // кадре, где начинается анимация.
             if isContentPrepared {
                 expandedContent
-                    .background {
-                        // Содержимое само говорит, сколько ему нужно.
-                        GeometryReader { proxy in
-                            Color.clear.preference(
-                                key: ContentHeightKey.self,
-                                value: proxy.size.height
-                            )
-                        }
-                    }
                     .environment(\.heroArtworkActive, isHeroActive)
                     .padding(.top, viewModel.geometry.menuBarHeight + NotchViewModel.contentTopInset)
                     .opacity(isExpanded ? 1 : 0)
@@ -479,14 +462,6 @@ struct NotchRootView: View {
     }
 }
 
-
-/// Сколько места просит содержимое раскрытой панели.
-private struct ContentHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
 
 /// Рисует ли обложку общий слой поверх содержимого.
 ///

@@ -4,6 +4,12 @@ import SwiftUI
 /// Вкладка «Активности» в раскрытой панели: всё, что сейчас живёт в вырезе,
 /// плюс быстрый запуск таймера.
 struct ActivitiesPane: View {
+    /// Высота одной строки и шапки со счётчиком. Те же числа знает
+    /// `NotchViewModel`, иначе расчёт панели разойдётся с разметкой.
+    static let rowHeight: CGFloat = 42
+    static let headerHeight: CGFloat = 22
+    static let bannerHeight: CGFloat = 54
+
     @EnvironmentObject private var center: ActivityCenter
     @EnvironmentObject private var media: NowPlayingProvider
     @EnvironmentObject private var shelf: ShelfService
@@ -39,7 +45,8 @@ struct ActivitiesPane: View {
             .padding(.vertical, 4)
             .background(Capsule().fill(Color.white.opacity(0.12)))
         }
-        .padding(9)
+        .padding(.horizontal, 9)
+        .frame(height: Self.bannerHeight)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.14)))
     }
 
@@ -94,6 +101,7 @@ struct ActivitiesPane: View {
                     Spacer(minLength: 4)
                     readAllButton
                 }
+                .frame(height: Self.headerHeight)
                 .padding(.horizontal, 2)
             }
 
@@ -180,7 +188,10 @@ private struct ActivityRow: View {
             }
         }
         .padding(.horizontal, 9)
-        .padding(.vertical, 7)
+        // Постоянная высота строки. Панель считает свою высоту заранее,
+        // и если строка окажется выше расчёта — низ списка просто срежется
+        // краем панели. Лучше одинаковые строки, чем обрезанный список.
+        .frame(height: ActivitiesPane.rowHeight)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.06)))
     }
 

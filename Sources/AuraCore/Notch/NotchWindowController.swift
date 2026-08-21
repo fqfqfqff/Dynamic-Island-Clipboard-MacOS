@@ -193,16 +193,27 @@ final class NotchWindowController {
         }
         .store(in: &cancellables)
 
-        // Содержимое панели может измениться, пока она раскрыта: пришла
-        // активность, ушла полка. Окно обязано за этим успевать, иначе
-        // панель обрежется по его краю.
-        viewModel.$extraRowCount
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                guard let self, self.viewModel.state.rank >= NotchState.event.rank else { return }
-                DispatchQueue.main.async { self.resizeWindow(expanded: true) }
+        // Окно обязано следовать за высотой панели.
+        //
+        // Панель измеряет свою настоящую высоту уже после того, как окно
+        // получило размер по предварительной оценке. Если окно за ней не
+        // идёт, низ панели просто срезается его краем — и остров выглядит
+        // обрубленным ровно тогда, когда содержимого больше обычного.
+        Publishers.CombineLatest3(
+            viewModel.$extraRowCount.removeDuplicates(),
+            notifications.$unread.map { !$0.isEmpty }.removeDuplicates(),
+            media.$accessDenied.removeDuplicates()
+        )
+        .sink { [weak self] _, hasHeader, accessDenied in
+            guard let self else { return }
+            withAnimation(AuraAnimation.accessory(settings: self.settings)) {
+                self.viewModel.hasNotificationHeader = hasHeader
+                self.viewModel.hasAccessBanner = accessDenied
             }
-            .store(in: &cancellables)
+            guard self.viewModel.state.rank >= NotchState.event.rank else { return }
+            DispatchQueue.main.async { self.resizeWindow(expanded: true) }
+        }
+        .store(in: &cancellables)
 
         // Уведомление прочитали — карточке больше нечего показывать,
         // и остров обязан свернуться, а не остаться пустой коробкой.
@@ -218,6 +229,13 @@ final class NotchWindowController {
             guard let self else { return }
             self.isHiddenByFullScreen = self.settings.hideInFullScreen && isFullScreen
             self.updatePanelVisibility()
+
+            // Пока идёт полноэкранное видео, опрашивать плеер незачем:
+            // панель всё равно спрятана, а опрос — это круг AppleScript
+            // и перебор аудио-объектов системы. Заодно глохнет спектр:
+            // он включается только под играющую карточку.
+            guard self.settings.enableMusic else { return }
+            self.isHiddenByFullScreen ? self.media.stop() : self.media.start()
         }
         fullScreen.start { ScreenGeometry.preferredScreen() }
 
@@ -265,6 +283,10 @@ final class NotchWindowController {
             "вырезВысота": Int(viewModel.geometry.notchSize.height),
             "вырезФизический": viewModel.geometry.isPhysical,
             "слотыШирина": Int(viewModel.compactAccessoryWidth),
+            // Панель обязана помещаться в окно: иначе низ срезается краем.
+            "панельВысота": Int(viewModel.contentSize.height),
+            "окноВысота": Int(viewModel.currentWindowSize.height),
+            
         ]
     }
 

@@ -241,6 +241,30 @@ extension NotchViewModelTests {
         }
     }
 
+    /// Регрессия: панель считает высоту заранее, и всё, что в ней бывает,
+    /// расчёт обязан учитывать. Забытая шапка со счётчиком или баннер отказа
+    /// в доступе — это срезанный край списка.
+    func testWindowFitsEveryBlockOfContent() {
+        for (header, banner) in [(false, false), (true, false), (false, true), (true, true)] {
+            let model = makeModel()
+            model.hasMedia = true
+            model.hasShelf = true
+            model.extraRowCount = 5
+            model.hasNotificationHeader = header
+            model.hasAccessBanner = banner
+            model.expand()
+
+            XCTAssertGreaterThanOrEqual(
+                model.expandedWindowSize.height, model.contentSize.height,
+                "панель выше своего окна: шапка \(header), баннер \(banner)"
+            )
+            XCTAssertLessThanOrEqual(
+                model.contentSize.height, NotchViewModel.maxPanelHeight,
+                "панель выше допустимого: шапка \(header), баннер \(banner)"
+            )
+        }
+    }
+
     func testInteractiveRectFitsWindowWhenExpanded() {
         let model = fullModel()
         let rect = model.interactiveRectInWindow
