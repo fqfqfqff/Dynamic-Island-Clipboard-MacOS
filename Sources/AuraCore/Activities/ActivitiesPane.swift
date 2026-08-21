@@ -97,16 +97,18 @@ struct ActivitiesPane: View {
                 .padding(.horizontal, 2)
             }
 
+            // Ни прокрутки, ни распорки.
+            //
+            // Прокрутка внутри выреза — плохой обмен: чтобы её увидеть, нужно
+            // уже смотреть в панель. А распорка делала содержимое жадным
+            // по высоте, и измерить его настоящий размер становилось нечем.
+            // Панель растёт под список, а не наоборот.
             if !others.isEmpty {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 6) {
-                        ForEach(others) { activity in
-                            ActivityRow(activity: activity) { dismiss(activity) }
-                        }
+                VStack(spacing: 6) {
+                    ForEach(others) { activity in
+                        ActivityRow(activity: activity) { dismiss(activity) }
                     }
                 }
-            } else {
-                Spacer(minLength: 0)
             }
 
         }
