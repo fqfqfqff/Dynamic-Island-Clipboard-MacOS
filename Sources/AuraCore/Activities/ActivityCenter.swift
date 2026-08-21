@@ -113,7 +113,9 @@ final class ActivityCenter: ObservableObject {
             return
         }
 
-        withAnimation(.smooth(duration: 0.4, extraBounce: 0.1)) {
+        // Та же пружина, что у острова: две разные кривые на одном движении
+        // читаются как дрожание.
+        withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
             activities = trimmed
         }
     }

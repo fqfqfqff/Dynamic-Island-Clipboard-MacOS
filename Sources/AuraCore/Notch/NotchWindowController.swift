@@ -154,18 +154,6 @@ final class NotchWindowController {
         }
         .store(in: &cancellables)
 
-        activities.$activities
-            .map { [weak viewModel] in
-                $0.isEmpty ? 0 : (viewModel?.accessorySlotWidth ?? 44) * 2
-            }
-            .removeDuplicates()
-            .sink { [weak viewModel, weak self] width in
-                guard let self else { return }
-                withAnimation(AuraAnimation.accessory(settings: self.settings)) {
-                    viewModel?.compactAccessoryWidth = width
-                }
-            }
-            .store(in: &cancellables)
 
 
 
@@ -187,7 +175,16 @@ final class NotchWindowController {
             guard let viewModel, let self else { return }
             let others = activities.filter { $0.id != "media.nowplaying" }.count
 
+            // Всё одним движением и одной кривой.
+            //
+            // Раньше ширина слотов ехала своей анимацией, состав содержимого —
+            // своей, а список активностей — третьей. Когда трек меняется,
+            // все три случаются в одном кадре, и пружины накладываются друг
+            // на друга: остров дёргается и не успокаивается.
             withAnimation(AuraAnimation.accessory(settings: self.settings)) {
+                viewModel.compactAccessoryWidth = activities.isEmpty
+                    ? 0
+                    : viewModel.accessorySlotWidth * 2
                 viewModel.hasMedia = playing != nil
                 viewModel.hasShelf = !shelf.isEmpty
                 viewModel.extraRowCount = others
