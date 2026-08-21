@@ -111,6 +111,13 @@ final class NowPlayingProvider: ObservableObject {
     /// Источники, признанные немыми, — ненадолго, иначе прослушивание
     /// каждый раз упиралось бы в одно и то же молчащее приложение.
     private var silentUntil: [pid_t: Date] = [:]
+    /// Сколько раз подряд источник признан немым.
+    ///
+    /// Одного раза мало. Браузер замолкает на доли секунды между сегментами
+    /// видео и на стыке рекламы — по одному вердикту карточка исчезала
+    /// и возвращалась, и плеер из Chrome мигал.
+    private var silentStrikes: [pid_t: Int] = [:]
+    private let strikesToDrop = 2
     /// Заголовки вкладок браузеров: читаются асинхронно, показываются сразу.
     private var browserTitles: [String: (title: String, at: Date)] = [:]
     private var playerObservers: [NSObjectProtocol] = []
@@ -342,9 +349,13 @@ final class NowPlayingProvider: ObservableObject {
         probe.listen(to: candidate.objectID)
         switch probe.isSilent {
         case .some(true):
+            let strikes = (silentStrikes[candidate.pid] ?? 0) + 1
+            silentStrikes[candidate.pid] = strikes
+            guard strikes >= strikesToDrop else { return candidate }
             markSilent(candidate)
             return nil
         case .some(false):
+            silentStrikes[candidate.pid] = 0
             return candidate
         case .none:
             // Вердикта ещё нет: у плеера и браузера звук — работа, их
@@ -364,6 +375,7 @@ final class NowPlayingProvider: ObservableObject {
 
     private func markSilent(_ source: AudioProcessMonitor.Source) {
         silentUntil[source.pid] = Date().addingTimeInterval(10)
+        silentStrikes[source.pid] = 0
         probe.stop()
     }
 
@@ -572,29 +584,55 @@ final class NowPlayingProvider: ObservableObject {
         return lyrics.triple(at: playing.elapsedNow() ?? 0)
     }
 
-    /// Снимок для заставки: она работает в отдельном процессе и читает файл.
-    private func writeSnapshot(_ playing: NowPlaying, artworkChanged: Bool) {
-        var artworkPath = lastArtworkPath
-        if artworkChanged {
-            artworkPath = NowPlayingSnapshot.writeArtwork(playing.artwork)
-            lastArtworkPath = artworkPath
-        }
+    /// Очередь для снимка заставки. Заставка читает файл в своём процессе,
+    /// и опоздание на полсекунды ей безразлично — а вот главному потоку
+    /// не безразлично кодирование PNG и запись на диск.
+    private static let snapshotQueue = DispatchQueue(
+        label: "dev.kekch.aura.snapshot", qos: .utility
+    )
 
-        NowPlayingSnapshot(
-            title: playing.title,
-            subtitle: playing.subtitle,
-            appName: playing.appName,
-            isPlaying: playing.isPlaying,
-            duration: playing.duration,
-            elapsed: playing.elapsed,
-            elapsedAt: playing.elapsedAt,
-            accentHex: NSColor(playing.accent).usingColorSpace(.sRGB)?.hexString ?? "#FF2D55",
-            artworkPath: artworkPath,
-            lyricPrevious: lyricLines(for: playing).previous,
-            lyric: lyricLines(for: playing).current,
-            lyricNext: lyricLines(for: playing).next,
-            updatedAt: Date()
-        ).write()
+    /// Снимок для заставки: она работает в отдельном процессе и читает файл.
+    ///
+    /// Раньше это делалось прямо в `publish`, на главном потоке. За одну
+    /// смену трека `publish` случается трижды — ответ плеера, пришедшая
+    /// обложка, дополненный список исполнителей, — и каждый раз это была
+    /// запись JSON, а при смене обложки ещё и кодирование PNG. Отсюда
+    /// подтормаживание ровно в момент переключения песни.
+    private func writeSnapshot(_ playing: NowPlaying, artworkChanged: Bool) {
+        // Всё, что нужно фоновой записи, снимается здесь, на главном потоке:
+        // дальше уезжают только значения.
+        let lyrics = lyricLines(for: playing)
+        let accent = NSColor(playing.accent).usingColorSpace(.sRGB)?.hexString ?? "#FF2D55"
+        let artwork = artworkChanged ? playing.artwork : nil
+        let previousPath = lastArtworkPath
+
+        Self.snapshotQueue.async {
+            let artworkPath = artworkChanged
+                ? NowPlayingSnapshot.writeArtwork(artwork)
+                : previousPath
+
+            NowPlayingSnapshot(
+                title: playing.title,
+                subtitle: playing.subtitle,
+                appName: playing.appName,
+                isPlaying: playing.isPlaying,
+                duration: playing.duration,
+                elapsed: playing.elapsed,
+                elapsedAt: playing.elapsedAt,
+                accentHex: accent,
+                artworkPath: artworkPath,
+                lyricPrevious: lyrics.previous,
+                lyric: lyrics.current,
+                lyricNext: lyrics.next,
+                updatedAt: Date()
+            ).write()
+
+            if artworkChanged {
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self.lastArtworkPath = artworkPath }
+                }
+            }
+        }
     }
 
     // MARK: - Обложка
