@@ -99,7 +99,7 @@ final class ClipboardService: ObservableObject {
     ///
     /// Системный `NSColorSampler` рисует лупу сам и разрешений не требует —
     /// это не снимок экрана, а выбор одной точки, и делает его система.
-    func pickColor(completion: (() -> Void)? = nil) {
+    func pickColor(completion: (@MainActor () -> Void)? = nil) {
         NSColorSampler().show { color in
             MainActor.assumeIsolated {
                 guard let color else { return }

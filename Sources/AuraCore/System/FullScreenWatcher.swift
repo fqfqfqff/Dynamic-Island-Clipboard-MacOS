@@ -85,7 +85,15 @@ final class FullScreenWatcher {
         }
     }
 
-    private func schedule(every interval: TimeInterval, action: @escaping () -> Void) -> Timer {
+    /// `@MainActor` у замыкания обязателен: колбэк таймера помечен
+    /// `@Sendable`, а обычное замыкание Sendable не является — компилятор
+    /// справедливо считает его передачу гонкой. Изолированное главным
+    /// актором Sendable по построению, и `assumeIsolated` ниже становится
+    /// не обещанием, а фактом.
+    private func schedule(
+        every interval: TimeInterval,
+        action: @MainActor @escaping () -> Void
+    ) -> Timer {
         let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             MainActor.assumeIsolated { action() }
         }
