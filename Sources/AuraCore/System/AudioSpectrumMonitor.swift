@@ -30,9 +30,21 @@ final class AudioSpectrumMonitor: ObservableObject {
     private var window: [Float]
     /// Сглаживание: без него полоски дёргаются на каждом кадре.
     private var smoothed: [CGFloat]
-    /// Буферы приходят сотнями в секунду; в интерфейс столько отдавать незачем.
-    /// Читается из аудио-потока, поэтому обычное свойство, без изоляции.
-    nonisolated(unsafe) private var lastFrame = Date.distantPast
+    /// Ограничитель частоты кадров, доступный аудио-потоку.
+    ///
+    /// Отдельный объект, а не свойство монитора, и это не украшение.
+    /// Замыкание, созданное внутри класса под главным актором, наследует
+    /// его изоляцию вместе со всеми обращениями к `self`. CoreAudio зовёт
+    /// это замыкание со своего потока, Swift на входе проверяет исполнителя,
+    /// проверка не проходит — и процесс падает с SIGTRAP.
+    ///
+    /// Так и было: Aura падала при каждом включении музыки, потому что тап
+    /// спектра открывается ровно тогда, когда появляется звук.
+    private final class FrameGate: @unchecked Sendable {
+        var lastFrame: TimeInterval = 0
+    }
+
+    private let gate = FrameGate()
     /// Скользящий потолок громкости. Абсолютные значения после БПФ зависят от
     /// записи и системной громкости, поэтому шкалу приходится подстраивать:
     /// иначе полоски либо лежат на дне, либо всё время упираются в потолок.
@@ -105,11 +117,13 @@ final class AudioSpectrumMonitor: ObservableObject {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var uid: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
-        guard AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &uid) == noErr
-        else { return nil }
-        return uid as String
+        // CoreAudio отдаёт строку с +1: принимаем её как Unmanaged и
+        // забираем владение, иначе она мостится мимо правил и утекает.
+        var uid: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(tapID, &address, 0, nil, &size, &uid) == noErr,
+              let value = uid?.takeRetainedValue() else { return nil }
+        return value as String
     }
 
     private func createAggregate(tapUID: String) -> Bool {
@@ -131,26 +145,26 @@ final class AudioSpectrumMonitor: ObservableObject {
     }
 
     private func startIO() -> Bool {
-        let status = AudioDeviceCreateIOProcIDWithBlock(
-            &procID,
-            aggregateID,
-            nil
-        ) { [weak self] _, inputData, _, _, _ in
-            guard let self else { return }
+        let gate = self.gate
 
+        // `@Sendable` и ни одного обращения к `self` до перехода на главный
+        // поток: иначе замыкание уедет в аудио-поток вместе с изоляцией
+        // главного актора и уронит процесс на первой же проверке исполнителя.
+        let block: AudioDeviceIOBlock = { @Sendable [weak self] _, inputData, _, _, _ in
             // Буферы приходят около ста раз в секунду. Считать БПФ на каждом —
             // именно это и съедало процессор: отсекаем здесь, до всей работы.
-            let now = Date()
-            guard now.timeIntervalSince(self.lastFrame) >= 1.0 / 15 else { return }
-            self.lastFrame = now
+            let now = Date.timeIntervalSinceReferenceDate
+            guard now - gate.lastFrame >= 1.0 / 15 else { return }
+            gate.lastFrame = now
 
-            let samples = Self.mono(from: inputData)
+            let samples = AudioSpectrumMonitor.mono(from: inputData)
             guard !samples.isEmpty else { return }
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self.analyse(samples) }
+                MainActor.assumeIsolated { self?.analyse(samples) }
             }
         }
 
+        let status = AudioDeviceCreateIOProcIDWithBlock(&procID, aggregateID, nil, block)
         guard status == noErr, let procID else { return false }
         return AudioDeviceStart(aggregateID, procID) == noErr
     }
@@ -158,7 +172,8 @@ final class AudioSpectrumMonitor: ObservableObject {
     // MARK: - Разбор
 
     /// Сводит все каналы в моно: для полосок стерео не нужно.
-    private static func mono(from bufferList: UnsafePointer<AudioBufferList>) -> [Float] {
+    /// `nonisolated` обязательно: зовётся из аудио-потока.
+    private nonisolated static func mono(from bufferList: UnsafePointer<AudioBufferList>) -> [Float] {
         let buffers = UnsafeMutableAudioBufferListPointer(
             UnsafeMutablePointer(mutating: bufferList)
         )

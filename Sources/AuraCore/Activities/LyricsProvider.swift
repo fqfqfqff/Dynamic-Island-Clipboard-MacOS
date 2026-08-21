@@ -104,7 +104,14 @@ final class LyricsProvider: ObservableObject {
         let plainLyrics: String?
     }
 
-    private static func parse(_ data: Data?) -> [Line] {
+    /// Разбор идёт в колбэке сети, то есть не на главном потоке.
+    ///
+    /// `nonisolated` здесь обязателен: метод статический, но класс изолирован
+    /// главным актором, и без пометки Swift проверяет исполнителя прямо
+    /// в фоновом потоке — проверка не проходит, процесс падает с SIGTRAP.
+    /// Компилятор об этом предупреждает, но именно предупреждает, а не
+    /// запрещает, — и предупреждение легко проехать мимо.
+    private nonisolated static func parse(_ data: Data?) -> [Line] {
         guard let data,
               let response = try? JSONDecoder().decode(Response.self, from: data),
               let synced = response.syncedLyrics, !synced.isEmpty
@@ -117,7 +124,7 @@ final class LyricsProvider: ObservableObject {
     }
 
     /// Формат LRC: `[01:23.45] текст строки`.
-    private static func line(from raw: String) -> Line? {
+    private nonisolated static func line(from raw: String) -> Line? {
         guard raw.hasPrefix("["), let close = raw.firstIndex(of: "]") else { return nil }
 
         let stamp = raw[raw.index(after: raw.startIndex)..<close]

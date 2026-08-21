@@ -23,7 +23,22 @@ let package = Package(
             name: "AuraCore",
             path: "Sources/AuraCore",
             resources: [.process("Resources")],
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                // Обращение к изолированному коду из чужого потока — это
+                // не предупреждение, а падение у пользователя. Так уже трижды
+                // умирала Aura: тап спектра, зонд уровня, разбор текстов песен.
+                // Компилятор такое видит — пусть теперь не даёт собрать.
+                .unsafeFlags(["-Werror", "ActorIsolatedCall"]),
+            ]
+        ),
+        // Снимки интерфейса: отдельный процесс, потому что видам нужен живой
+        // NSApplication. Разрешения на запись экрана не требует.
+        .executableTarget(
+            name: "AuraShots",
+            dependencies: ["AuraCore"],
+            path: "Sources/AuraShots",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "AuraSaver",
