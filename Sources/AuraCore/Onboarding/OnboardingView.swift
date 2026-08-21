@@ -116,14 +116,6 @@ struct OnboardingView: View {
                 optional: true
             ),
             Item(
-                title: "Bluetooth",
-                purpose: "Заряд наушников при подключении.",
-                symbol: "airpods",
-                state: PermissionStatus.bluetooth,
-                action: { PermissionStatus.open(.bluetooth) },
-                optional: true
-            ),
-            Item(
                 title: "Полный доступ к диску",
                 purpose: "Только ради режима фокусирования: состояние «Не беспокоить» лежит в защищённом файле.",
                 symbol: "moon.fill",
