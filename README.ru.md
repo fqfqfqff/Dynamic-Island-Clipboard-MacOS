@@ -94,10 +94,22 @@ Scripts/aura remove --id build
 - Xcode 15.3+ или инструменты командной строки: `xcode-select --install`
 - Больше ничего: внешних зависимостей у проекта нет
 
-### 2. Одна команда
+### 2. Простой путь
+
+Скачайте **Install-Aura.command** из
+[последнего релиза](https://github.com/fqfqfqff/Dynamic-Island-Clipboard-MacOS/releases/latest)
+и щёлкните по нему дважды — всё. Он проверит версию macOS, поставит
+инструменты разработчика, если их нет, скачает исходники в `~/Developer/Aura`,
+соберёт, установит и запустит Aura.
+
+Скачанный скрипт macOS с первого раза не откроет — нажмите на нём правой
+кнопкой и выберите **Открыть**, затем подтвердите. Так работает Gatekeeper.
+
+### 2б. Или из терминала
 
 ```bash
-git clone https://github.com/<вы>/aura && cd aura && ./Scripts/setup.sh
+git clone https://github.com/fqfqfqff/Dynamic-Island-Clipboard-MacOS && \
+  cd Dynamic-Island-Clipboard-MacOS && ./Scripts/setup.sh
 ```
 
 `setup.sh` делает пять вещей по порядку:

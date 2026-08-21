@@ -92,10 +92,22 @@ Everything is one command, but it is worth knowing what it does.
 - Xcode 15.3+ or the Command Line Tools — `xcode-select --install`
 - Nothing else: the project has no external dependencies
 
-### 2. One command
+### 2. The easy way
+
+Download **Install-Aura.command** from the
+[latest release](https://github.com/fqfqfqff/Dynamic-Island-Clipboard-MacOS/releases/latest),
+double-click it, and you are done. It checks the macOS version, installs the
+developer tools if they are missing, downloads the sources into `~/Developer/Aura`,
+builds, installs and launches Aura.
+
+macOS will refuse to open a downloaded script on the first try — right-click it
+and choose **Open**, then confirm. That is Gatekeeper doing its job.
+
+### 2b. Or from the terminal
 
 ```bash
-git clone https://github.com/<you>/aura && cd aura && ./Scripts/setup.sh
+git clone https://github.com/fqfqfqff/Dynamic-Island-Clipboard-MacOS && \
+  cd Dynamic-Island-Clipboard-MacOS && ./Scripts/setup.sh
 ```
 
 `setup.sh` does five things, in order:

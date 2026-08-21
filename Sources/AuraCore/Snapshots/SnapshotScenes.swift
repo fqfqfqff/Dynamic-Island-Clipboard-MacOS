@@ -344,7 +344,7 @@ public enum SnapshotScenes {
             environment.activities.upsert(
                 Activity(
                     id: "notification.Telegram",
-                    title: "Никита Соловьёв",
+                    title: "Alex Rivera",
                     subtitle: "Голосовое сообщение",
                     symbol: "waveform.circle.fill",
                     tint: .white,
@@ -365,7 +365,9 @@ public enum SnapshotScenes {
                     id: UUID(),
                     app: "Telegram",
                     bundleID: "ru.keepcoder.Telegram",
-                    sender: "Никита Соловьёв",
+                    // Имя выдуманное: снимки уезжают в README, и своё
+                    // имя там ни к чему.
+                    sender: "Alex Rivera",
                     body: nil,
                     kind: .voice,
                     icon: icon,
