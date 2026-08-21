@@ -7,6 +7,7 @@ struct ActivitiesPane: View {
     @EnvironmentObject private var center: ActivityCenter
     @EnvironmentObject private var media: NowPlayingProvider
     @EnvironmentObject private var shelf: ShelfService
+    @EnvironmentObject private var notifications: NotificationMirrorProvider
 
     private var accessBanner: some View {
         HStack(spacing: 8) {
@@ -47,6 +48,25 @@ struct ActivitiesPane: View {
         center.activities.filter { $0.id != "media.nowplaying" }
     }
 
+    private var unreadCount: Int {
+        notifications.unread.values.reduce(0, +)
+    }
+
+    /// Снять все значки разом. Иначе непрочитанное приходится разбирать
+    /// по одному или открывать каждое приложение — а уведомления приходят
+    /// пачками из трёх мессенджеров сразу.
+    private var readAllButton: some View {
+        Button(t("ui.3c17e082", "Прочитать всё")) {
+            notifications.markAllRead()
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 10.5, weight: .medium))
+        .foregroundStyle(.white.opacity(0.75))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.white.opacity(0.12)))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if media.accessDenied {
@@ -61,20 +81,27 @@ struct ActivitiesPane: View {
                 ShelfPane()
             }
 
-            // Плашка «тихо» уместна, только когда показывать действительно
-            // нечего: раньше она вылезала под плеером, потому что условия
-            // проверялись независимо друг от друга.
-            if media.nowPlaying == nil && others.isEmpty && shelf.items.isEmpty {
-                PlaceholderPane(
-                    symbol: "waveform",
-                    title: "Пока тихо",
-                    subtitle: "Включите музыку, смените громкость или сделайте снимок экрана"
-                )
-            } else if !others.isEmpty {
+            // Плашки «пока тихо» здесь больше нет. Пустая панель по наведению
+            // теперь и не раскрывается (см. NotchViewModel.hasContent), а
+            // объяснять пользователю тишину надписью — занимать вырез тем,
+            // ради чего на него не смотрят.
+            if unreadCount > 0 {
+                HStack(spacing: 6) {
+                    Text("\(unreadCount)")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .monospacedDigit()
+                    Spacer(minLength: 4)
+                    readAllButton
+                }
+                .padding(.horizontal, 2)
+            }
+
+            if !others.isEmpty {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 6) {
                         ForEach(others) { activity in
-                            ActivityRow(activity: activity)
+                            ActivityRow(activity: activity) { dismiss(activity) }
                         }
                     }
                 }
@@ -87,12 +114,32 @@ struct ActivitiesPane: View {
 
 }
 
+extension ActivitiesPane {
+    /// Убрать активность из выреза.
+    ///
+    /// Для уведомления это «прочитал»: ждать, пока человек переключится
+    /// в приложение, не обязательно. Для всего остального — просто убрать,
+    /// и провайдер не поставит своё обратно: загрузка, которую свернули
+    /// руками, возвращалась на следующем же опросе.
+    private func dismiss(_ activity: Activity) {
+        if let app = NotificationMirrorProvider.appName(fromActivityID: activity.id) {
+            notifications.markRead(app: app)
+        } else {
+            center.dismiss(id: activity.id)
+        }
+    }
+}
+
 private struct ActivityRow: View {
     let activity: Activity
+    var onDismiss: () -> Void = {}
 
     var body: some View {
         content
-            .modifier(FileActions(url: activity.fileURL))
+            .modifier(FileActions(url: activity.fileURL, onDismiss: onDismiss))
+            .contextMenu {
+                Button(t("ui.0a7c3e58", "Убрать"), action: onDismiss)
+            }
     }
 
     private var content: some View {
@@ -156,15 +203,20 @@ private struct ActivityRow: View {
 /// приложение — снимок экрана уезжает в письмо, не заходя в папку.
 private struct FileActions: ViewModifier {
     let url: URL?
+    let onDismiss: () -> Void
 
     func body(content: Content) -> some View {
         if let url {
+            // У строки с файлом клик уже занят открытием — убрать её можно
+            // через контекстное меню.
             content
                 .onTapGesture { NSWorkspace.shared.open(url) }
                 .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
                 .help(url.path)
         } else {
             content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onDismiss)
         }
     }
 }

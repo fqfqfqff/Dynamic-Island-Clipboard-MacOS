@@ -29,7 +29,21 @@ final class ActivityCenter: ObservableObject {
         expiryTimer = nil
     }
 
+    /// Активности, которые пользователь убрал руками.
+    ///
+    /// Без этого списка убрать нечего: провайдер поставит своё обратно на
+    /// следующем же опросе. Запись живёт, пока провайдер не уберёт активность
+    /// сам, — то есть пока загрузка не кончится или уведомление не сменится.
+    private var dismissed: Set<String> = []
+
+    /// Убрать по воле пользователя — и не возвращать.
+    func dismiss(id: String) {
+        dismissed.insert(id)
+        remove(id: id, forgetDismissal: false)
+    }
+
     func upsert(_ activity: Activity) {
+        guard !dismissed.contains(activity.id) else { return }
         var next = activity
         if let existing = activities.first(where: { $0.id == activity.id }) {
             next.createdAt = existing.createdAt   // обновление не двигает её в конец очереди
@@ -41,11 +55,19 @@ final class ActivityCenter: ObservableObject {
     }
 
     func remove(id: String) {
+        remove(id: id, forgetDismissal: true)
+    }
+
+    private func remove(id: String, forgetDismissal: Bool) {
+        // Провайдер убрал активность сам — значит, повода прятать её больше
+        // нет: следующая с тем же именем будет уже про другое.
+        if forgetDismissal { dismissed.remove(id) }
         guard activities.contains(where: { $0.id == id }) else { return }
         apply(activities.filter { $0.id != id })
     }
 
     func removeAll() {
+        dismissed.removeAll()
         apply([])
     }
 
