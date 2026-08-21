@@ -110,7 +110,7 @@ struct ShowcaseView: View {
     /// Двести шестьдесят, а не треть высоты экрана: вместе с текстом песни
     /// композиция должна помещаться и на тринадцатидюймовом ноутбуке,
     /// иначе часы и подсказка уезжают за край.
-    private static let artworkSide: CGFloat = 260
+    private static let artworkSide: CGFloat = 320
 
     @ViewBuilder
     private var content: some View {
@@ -177,20 +177,20 @@ struct ShowcaseView: View {
         alignment: HorizontalAlignment = .leading
     ) -> some View {
         VStack(alignment: alignment, spacing: 14) {
-            artwork(playing.artwork, side: width)
+            artwork(playing.fullArtwork ?? playing.artwork, side: width)
 
             // Выравнивание берётся из макета, а не зашито влево: в режиме
             // «по центру» название и исполнитель прижимались к левому краю
             // колонки, и по центру оказывалась только обложка.
             VStack(alignment: alignment, spacing: 4) {
                 Text(playing.title)
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(playing.subtitle ?? playing.appName)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 19, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(1)
             }
@@ -296,23 +296,23 @@ struct ShowcaseView: View {
 
             VStack(alignment: alignment, spacing: 12) {
                 if triple.current != nil || triple.next != nil {
-                    lyric(triple.previous, size: 19, opacity: 0.22, centred: centred)
-                    lyric(triple.current, size: 30, opacity: 0.95,
+                    lyric(triple.previous, size: 23, opacity: 0.22, centred: centred)
+                    lyric(triple.current, size: 38, opacity: 0.95,
                           weight: .semibold, centred: centred)
-                    lyric(triple.next, size: 19, opacity: 0.22, centred: centred)
+                    lyric(triple.next, size: 23, opacity: 0.22, centred: centred)
                 } else if lyrics.isLoading {
                     Text(t("ui.1c05e73b", "ищем текст…"))
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(.white.opacity(0.18))
                 }
             }
-            .frame(maxWidth: 560, alignment: centred ? .center : .leading)
+            .frame(maxWidth: 640, alignment: centred ? .center : .leading)
             .multilineTextAlignment(centred ? .center : .leading)
             // Меняется строка, а не вся колонка: анимация на всём блоке
             // заставляла соседние строки ползать вместе с ней.
             .animation(.smooth(duration: 0.45), value: triple.current)
         }
-        .frame(maxWidth: 560)
+        .frame(maxWidth: 640)
     }
 
     @ViewBuilder

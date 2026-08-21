@@ -19,6 +19,12 @@ final class NowPlayingProvider: ObservableObject {
         /// Альбом: показывается по нажатой ⌥, когда одного названия мало.
         var album: String?
         var artwork: NSImage?
+        /// Обложка как её отдал плеер, без уменьшения.
+        ///
+        /// В вырезе она не нужна — там хватает двухсот точек, — но витрина
+        /// во весь экран растягивает эту же картинку до трёхсот с лишним,
+        /// и уменьшенная копия там заметно мылит.
+        var fullArtwork: NSImage?
         /// Заранее размытая копия обложки для подложки острова.
         var blurredArtwork: NSImage?
         var duration: TimeInterval?
@@ -99,6 +105,8 @@ final class NowPlayingProvider: ObservableObject {
     private var refreshStartedAt: Date?
     private let refreshTimeout: TimeInterval = 15
     private var artworkCache: (key: String, image: NSImage)?
+    /// Исходник обложки — только для витрины, в вырезе он избыточен.
+    private var fullArtwork: NSImage?
     private var accentColor: Color = .pink
     private var blurredArtwork: NSImage?
     private var lastArtworkPath: String?
@@ -439,6 +447,7 @@ final class NowPlayingProvider: ObservableObject {
             appName: player.scriptName,
             album: response.album,
             artwork: artwork,
+            fullArtwork: fullArtwork,
             blurredArtwork: blurredArtwork,
             duration: response.duration,
             elapsed: response.elapsed,
@@ -603,7 +612,8 @@ final class NowPlayingProvider: ObservableObject {
         // дальше уезжают только значения.
         let lyrics = lyricLines(for: playing)
         let accent = NSColor(playing.accent).usingColorSpace(.sRGB)?.hexString ?? "#FF2D55"
-        let artwork = artworkChanged ? playing.artwork : nil
+        // Заставка занимает весь экран — ей нужен исходник.
+        let artwork = artworkChanged ? (playing.fullArtwork ?? playing.artwork) : nil
         let previousPath = lastArtworkPath
 
         Self.snapshotQueue.async {
@@ -654,6 +664,7 @@ final class NowPlayingProvider: ObservableObject {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.artworkCache = (urlString, image)
+                    self.fullArtwork = original
                     self.accentColor = image.accentColor
                     // Размываем сразу и держим готовую копию: во время
                     // анимации острова считать это уже поздно.

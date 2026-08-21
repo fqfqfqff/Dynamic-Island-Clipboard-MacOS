@@ -73,8 +73,7 @@ public enum SnapshotScenes {
     // MARK: - Подставные данные
 
     /// Обложка рисуется программно: снимки не должны тянуть за собой файлы.
-    static func artwork() -> NSImage {
-        let side: CGFloat = 220
+    static func artwork(side: CGFloat = 220) -> NSImage {
         let image = NSImage(size: CGSize(width: side, height: side))
         image.lockFocus()
         NSGradient(
@@ -404,7 +403,9 @@ public enum SnapshotScenes {
         environment.settings.showcaseLayout = layout
         environment.settings.showLyrics = true
         environment.settings.showcaseClock = true
-        environment.media.inject(nowPlaying())
+        var playing = nowPlaying()
+        playing.fullArtwork = artwork(side: 640)
+        environment.media.inject(playing)
         environment.lyrics.inject([
             .init(time: 0, text: "Waiting in the car"),
             .init(time: 90, text: "Waiting for a ride in the dark"),
