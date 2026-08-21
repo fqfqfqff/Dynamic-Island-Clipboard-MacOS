@@ -120,9 +120,15 @@ extension IntegrationParsersTests {
 
     /// Процентов у нас нет и быть не может: полного размера из временного
     /// файла не узнать. Показываем то, что знаем точно.
+    ///
+    /// Язык задаётся явно: строка переводится, а машина сборки говорит
+    /// по-английски — тест на русском тексте зелёный только на своей машине.
     func testSizeWordingInsteadOfFakePercentage() {
+        Localization.language = "ru"
+        defer { Localization.language = "system" }
+
         XCTAssertEqual(DownloadActivityProvider.wording(size: 0), "Начинается")
-        XCTAssertTrue(DownloadActivityProvider.wording(size: 5_000_000).contains("MB")
-                      || DownloadActivityProvider.wording(size: 5_000_000).contains("МБ"))
+        let big = DownloadActivityProvider.wording(size: 5_000_000)
+        XCTAssertTrue(big.contains("MB") || big.contains("МБ"), "неожиданный формат: \(big)")
     }
 }
