@@ -67,6 +67,9 @@ final class NowPlayingProvider: ObservableObject {
         let scriptName: String
         let durationDivisor: Double
         let hasArtworkURL: Bool
+        /// Есть ли у трека идентификатор, по которому можно достать
+        /// полный список исполнителей.
+        let hasIdentifier: Bool
     }
 
     private enum ScriptOutcome {
@@ -77,9 +80,9 @@ final class NowPlayingProvider: ObservableObject {
 
     private let scriptablePlayers = [
         ScriptablePlayer(bundleID: "com.spotify.client", scriptName: "Spotify",
-                         durationDivisor: 1000, hasArtworkURL: true),
+                         durationDivisor: 1000, hasArtworkURL: true, hasIdentifier: true),
         ScriptablePlayer(bundleID: "com.apple.Music", scriptName: "Music",
-                         durationDivisor: 1, hasArtworkURL: false),
+                         durationDivisor: 1, hasArtworkURL: false, hasIdentifier: false),
     ]
 
     @Published private(set) var nowPlaying: NowPlaying?
@@ -368,12 +371,15 @@ final class NowPlayingProvider: ObservableObject {
         let artworkLine = player.hasArtworkURL
             ? " & \"\\n\" & (artwork url of current track)"
             : ""
+        let identifierLine = player.hasIdentifier
+            ? " & \"\\n\" & (id of current track)"
+            : ""
         let script = """
         tell application "\(player.scriptName)"
             if player state is playing or player state is paused then
                 return (name of current track) & "\\n" & (artist of current track) & "\\n" \
         & (duration of current track) & "\\n" & (player position) & "\\n" \
-        & (player state is playing) & "\\n" & (album of current track)\(artworkLine)
+        & (player state is playing) & "\\n" & (album of current track)\(artworkLine)\(identifierLine)
             end if
         end tell
         """
@@ -413,10 +419,11 @@ final class NowPlayingProvider: ObservableObject {
 
     private func present(response: MusicResponse, player: ScriptablePlayer) {
         let artwork = artwork(forURL: response.artworkURL, playerName: player.scriptName)
+        let artist = enrichedArtist(for: response)
 
         publish(NowPlaying(
             title: response.title,
-            subtitle: response.artist,
+            subtitle: artist,
             appName: player.scriptName,
             album: response.album,
             artwork: artwork,
@@ -428,6 +435,33 @@ final class NowPlayingProvider: ObservableObject {
             accent: accentColor,
             canControl: true
         ))
+    }
+
+    /// Полный список исполнителей.
+    ///
+    /// У Spotify в AppleScript одно поле `artist`, и для трека с несколькими
+    /// исполнителями оно называет только первого. Остальных добираем
+    /// с публичной страницы трека — один запрос на трек, дальше из памяти.
+    private func enrichedArtist(for response: MusicResponse) -> String? {
+        guard settings.enrichSpotifyArtists,
+              let known = response.artist, !known.isEmpty,
+              let identifier = response.identifier,
+              let id = SpotifyArtists.trackID(from: identifier)
+        else { return response.artist }
+
+        if let full = SpotifyArtists.cached(id) { return full }
+
+        SpotifyArtists.lookup(id: id, known: known) { [weak self] full in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, var playing = self.nowPlaying,
+                          playing.subtitle == known else { return }
+                    playing.subtitle = full
+                    self.publish(playing)
+                }
+            }
+        }
+        return known
     }
 
     /// Источник, который не умеет рассказать о себе: показываем приложение.

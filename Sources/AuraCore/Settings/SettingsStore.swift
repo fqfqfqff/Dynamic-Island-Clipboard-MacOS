@@ -74,6 +74,12 @@ final class SettingsStore: ObservableObject {
     @Published var enableNetwork: Bool { didSet { save(enableNetwork, "enableNetwork") } }
 
     @Published var reactToAudio: Bool { didSet { save(reactToAudio, "reactToAudio") } }
+    /// Дополнять список исполнителей Spotify с публичной страницы трека.
+    ///
+    /// В AppleScript у Spotify одно поле `artist`, и для трека с несколькими
+    /// исполнителями оно отдаёт только первого. Остальных видно на странице
+    /// трека — она открыта всем, ключей не нужно.
+    @Published var enrichSpotifyArtists: Bool { didSet { save(enrichSpotifyArtists, "enrichSpotifyArtists") } }
 
     // Уведомления
     /// "card" — вырез вырастает карточкой, "badge" — только значок в компактном виде.
@@ -204,6 +210,7 @@ final class SettingsStore: ObservableObject {
         dropShowsMenu = bool("dropShowsMenu", true)
 
         reactToAudio = bool("reactToAudio", true)
+        enrichSpotifyArtists = bool("enrichSpotifyArtists", true)
 
         notificationStyle = defaults.string(forKey: "notificationStyle") ?? "card"
         notificationHold = double("notificationHold", 5)
@@ -358,6 +365,7 @@ final class SettingsStore: ObservableObject {
             enableFocus = true
             enableCalendar = true
             reactToAudio = true
+        enrichSpotifyArtists = true
             showLyrics = true
                 scrollSwitchesTrack = true
 

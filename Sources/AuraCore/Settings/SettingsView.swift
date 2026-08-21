@@ -423,6 +423,11 @@ struct SettingsView: View {
                 Toggle(t("ui.6b40f9d2", "Загрузки браузера"), isOn: $settings.enableDownloads)
             }
 
+            group("Spotify") {
+                Toggle(t("ui.4b7e0d92", "Показывать всех исполнителей"), isOn: $settings.enrichSpotifyArtists)
+                hint("В AppleScript у Spotify одно поле «исполнитель», и для трека с несколькими оно называет только первого. Остальных Aura берёт с публичной страницы трека — ключей для этого не нужно, но это сетевой запрос, один на трек.")
+            }
+
             group("Звук") {
                 Toggle(t("ui.205bf115", "Полоски двигаются под реальный звук"), isOn: $settings.reactToAudio)
                 hint("Требует разрешения на запись звука. Ничего не записывается — считаются только уровни частот.")

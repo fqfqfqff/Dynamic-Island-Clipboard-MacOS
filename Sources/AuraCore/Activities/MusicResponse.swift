@@ -11,6 +11,8 @@ struct MusicResponse: Equatable {
     var isPlaying: Bool
     var album: String?
     var artworkURL: String?
+    /// `spotify:track:…` — по нему добирается полный список исполнителей.
+    var identifier: String?
 
     /// Плееры отвечают числами в локали пользователя: в русской позиция
     /// приходит как «87,094», и обычный `Double(_:)` возвращает на этом nil —
@@ -31,6 +33,7 @@ struct MusicResponse: Equatable {
 
         let album = lines.count >= 6 && !lines[5].isEmpty ? lines[5] : nil
         let artworkURL = lines.count >= 7 && !lines[6].isEmpty ? lines[6] : nil
+        let identifier = lines.count >= 8 && !lines[7].isEmpty ? lines[7] : nil
 
         return MusicResponse(
             title: title,
@@ -39,7 +42,8 @@ struct MusicResponse: Equatable {
             elapsed: number(lines[3]),
             isPlaying: lines[4] == "true",
             album: album,
-            artworkURL: artworkURL
+            artworkURL: artworkURL,
+            identifier: identifier
         )
     }
 }

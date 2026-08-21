@@ -159,9 +159,15 @@ The system asks for these itself, on first use.
 | Calendars | the next meeting | no meeting card |
 | Full disk | focus mode state (optional) | focus changes stay silent |
 
-Nothing is recorded, uploaded or sent anywhere. The only network request is an
-optional lyrics lookup at lrclib.net, which receives a track name, an artist
-and a duration — and only when lyrics are switched on.
+Nothing is recorded or uploaded. There are exactly two network requests, both
+optional and both switchable off:
+
+- **lrclib.net** — a lyrics lookup that receives a track name, an artist and a
+  duration, only when lyrics are switched on;
+- **open.spotify.com** — the public page of the track currently playing, to
+  read the full list of artists. Spotify's own AppleScript exposes a single
+  `artist` field and names only the first one. The request carries a track id
+  Spotify already knows, and the answer is remembered per track.
 
 ---
 
