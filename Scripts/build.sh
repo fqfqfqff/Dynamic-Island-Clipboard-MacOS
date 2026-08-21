@@ -14,6 +14,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Aura"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+# Обложка рисуется кодом; пересобрать — Scripts/make-icon.sh
+[ -f "$ROOT/Resources/Aura.icns" ] && cp "$ROOT/Resources/Aura.icns" "$APP/Contents/Resources/"
 
 # Ресурсы SwiftPM лежат отдельными бандлами рядом с бинарём — без них
 # приложение остаётся без переводов.
