@@ -3,7 +3,13 @@ import SwiftUI
 
 /// Один контекст на всё приложение: его создание стоит десятки миллисекунд,
 /// а именно из-за этого подстройка цвета под обложку заметно запаздывала.
-private let sharedCIContext = CIContext(options: [.workingColorSpace: NSNull()])
+///
+/// `nonisolated(unsafe)` здесь честное: `CIContext` потокобезопасен по
+/// документации, но `Sendable` в старых SDK не помечен — и на них проект
+/// без этой пометки просто не собирается.
+nonisolated(unsafe) private let sharedCIContext = CIContext(
+    options: [.workingColorSpace: NSNull()]
+)
 
 extension NSImage {
     /// Заранее размытая копия для подложки.

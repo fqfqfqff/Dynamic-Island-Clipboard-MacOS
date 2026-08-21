@@ -265,6 +265,12 @@ struct NotchRootView: View {
         // преломляет то, что под ним, а под ним — насыщенная картинка.
         // На чёрном и на градиенте этого не происходит.
         if settings.glassStyle != "off", settings.backgroundStyle != "artwork" {
+            // `#available` — проверка во время работы, а `glassEffect` нужно
+            // ещё и скомпилировать: в SDK младше macOS 26 такого метода нет
+            // вовсе. Отсюда проверка версии компилятора: Swift 6.2 приехал
+            // вместе с Xcode 26 и этим SDK. Без неё проект не собирается
+            // ни в CI, ни у любого, кто ещё не обновил Xcode.
+            #if compiler(>=6.2)
             if #available(macOS 26.0, *) {
                 switch settings.glassStyle {
                 case "clear":
@@ -277,6 +283,9 @@ struct NotchRootView: View {
             } else {
                 Rectangle().fill(.ultraThinMaterial).opacity(0.35)
             }
+            #else
+            Rectangle().fill(.ultraThinMaterial).opacity(0.35)
+            #endif
         }
     }
 
