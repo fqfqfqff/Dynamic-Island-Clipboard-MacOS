@@ -16,18 +16,21 @@ enum BrowserTitleReader {
         return browsers[bundleID] != nil
     }
 
-    /// Возвращает заголовок активной вкладки. Требует разрешения на управление
-    /// браузером; при отказе просто отдаёт nil, и плеер покажет имя приложения.
-    static func activeTabTitle(bundleID: String?) -> String? {
+    /// Заголовок активной вкладки. Требует разрешения на управление браузером;
+    /// при отказе просто отдаёт nil, и плеер покажет имя приложения.
+    ///
+    /// Выполняется в акторе, а не на главном потоке. Раньше `NSAppleScript`
+    /// звался прямо из опроса плеера: задумавшийся браузер — а он задумывается
+    /// на каждом тяжёлом сайте — подвешивал вместе с собой весь интерфейс.
+    static func activeTabTitle(bundleID: String?, runner: AppleScriptRunner) async -> String? {
         guard let bundleID, let name = browsers[bundleID] else { return nil }
 
         let source = name == "Safari"
             ? "tell application \"Safari\" to return name of current tab of window 1"
             : "tell application \"\(name)\" to return title of active tab of window 1"
 
-        var error: NSDictionary?
-        let output = NSAppleScript(source: source)?.executeAndReturnError(&error)
-        guard error == nil, let title = output?.stringValue, !title.isEmpty else { return nil }
+        guard case .success(let title) = await runner.run(source: source, key: "tab.\(name)"),
+              !title.isEmpty else { return nil }
 
         return cleaned(title)
     }

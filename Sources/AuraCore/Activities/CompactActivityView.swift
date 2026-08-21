@@ -7,6 +7,10 @@ struct CompactActivityView: View {
     let extraCount: Int
     let notchWidth: CGFloat
     let slotWidth: CGFloat
+    /// false — обложку рисует общий слой поверх, здесь остаётся только место.
+    var showsArtwork = true
+    /// false — компактный вид скрыт за раскрытой панелью.
+    var isLive = true
 
     @EnvironmentObject private var settings: SettingsStore
 
@@ -24,7 +28,10 @@ struct CompactActivityView: View {
 
     @ViewBuilder
     private var leading: some View {
-        if let artwork = activity.artwork {
+        if activity.artwork != nil, !showsArtwork {
+            // Место под обложку: её сюда доводит общий слой.
+            Color.clear.frame(width: 22, height: 22)
+        } else if let artwork = activity.artwork {
             Image(nsImage: artwork)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -79,7 +86,7 @@ struct CompactActivityView: View {
         case .pulse:
             PulsingDot(tint: activity.tint)
         case .audioBars:
-            AudioBars(tint: activity.tint)
+            AudioBars(tint: activity.tint, isLive: isLive)
         }
     }
 
@@ -118,6 +125,11 @@ struct ProgressRing: View {
 struct AudioBars: View {
     let tint: Color
     var barCount: Int = 5
+    /// false — вид на экране не виден, и расписание кадров ему не нужно.
+    /// `TimelineView` тикает даже при нулевой прозрачности: скрытые полоски
+    /// компактного вида продолжали перерисовываться десять раз в секунду,
+    /// пока пользователь смотрел на раскрытую панель.
+    var isLive = true
 
     @EnvironmentObject private var spectrum: AudioSpectrumMonitor
 
@@ -125,12 +137,27 @@ struct AudioBars: View {
     private let spacing: CGFloat = 2
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: spectrum.isRunning ? 0.1 : 0.18)) { context in
-            // Canvas вместо стопки фигур: SwiftUI не пересобирает дерево на
-            // каждом кадре, а просто перерисовывает — на профиле это была
-            // основная нагрузка приложения в покое.
-            let heights = frameHeights(at: context.date)
+        if isLive {
+            live
+        } else {
+            frame(at: .now)
+        }
+    }
 
+    private var live: some View {
+        TimelineView(.periodic(from: .now, by: spectrum.isRunning ? 0.1 : 0.18)) { context in
+            frame(at: context.date)
+        }
+    }
+
+    /// Один кадр полосок.
+    private func frame(at date: Date) -> some View {
+        // Canvas вместо стопки фигур: SwiftUI не пересобирает дерево на
+        // каждом кадре, а просто перерисовывает — на профиле это была
+        // основная нагрузка приложения в покое.
+        let heights = frameHeights(at: date)
+
+        return Group {
             Canvas { ctx, size in
                 for index in 0..<barCount {
                     let height = heights[index]
@@ -148,7 +175,6 @@ struct AudioBars: View {
                 width: CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * spacing,
                 height: 18
             )
-
         }
     }
 

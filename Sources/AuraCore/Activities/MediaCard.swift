@@ -1,10 +1,21 @@
+import AppKit
 import SwiftUI
 
 /// Плеер в раскрытом вырезе.
 struct MediaCard: View {
     @EnvironmentObject private var media: NowPlayingProvider
     @EnvironmentObject private var settings: SettingsStore
-    @State private var artworkPulse = false
+    /// Обложку может рисовать общий слой острова — тогда она переезжает
+    /// из компактного слота, а не появляется здесь заново.
+    @Environment(\.heroArtworkActive) private var heroArtworkActive
+    @EnvironmentObject private var modifiers: ModifierWatcher
+    /// Подтверждение показываем на месте исполнителя: отдельная плашка
+    /// в вырезе размером с ноготь — это перебор.
+    @State private var didCopy = false
+    /// Куда пользователь ведёт палец по полосе, 0…1. Пока ведёт — плеер
+    /// не трогаем: перемотка на каждое движение это десяток запросов
+    /// к плееру и рывками едущая полоса.
+    @State private var scrubbing: Double?
 
     private var accent: Color {
         AuraTheme.accent(for: media.nowPlaying?.accent ?? .pink, settings: settings)
@@ -27,13 +38,23 @@ struct MediaCard: View {
                     )
                     .frame(height: settings.titleFontSize + 6)
 
-                    Text(playing.subtitle ?? playing.appName)
-                        .font(.system(size: max(9, settings.titleFontSize - 3.5), weight: .medium, design: design))
-                        .foregroundStyle(.white.opacity(0.55))
-                        .lineLimit(1)
-                        .contentTransition(.opacity)
+                    // Исполнителя тоже катаем: у дуэтов и сборников имя
+                    // не влезает ничуть не реже, чем название.
+                    MarqueeText(
+                        text: secondLine(playing),
+                        font: .system(
+                            size: max(9, settings.titleFontSize - 3.5),
+                            weight: .medium,
+                            design: design
+                        ),
+                        color: .white.opacity(didCopy ? 0.85 : 0.55)
+                    )
+                    .frame(height: max(9, settings.titleFontSize - 3.5) + 5)
                 }
                 .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { copy(playing) }
+                .help(t("ui.ee1d0a37", "Нажмите, чтобы скопировать название"))
                 .animation(AuraAnimation.content, value: playing.title)
 
                 // Полоса и кнопки — один блок: между ними почти нет зазора,
@@ -54,11 +75,38 @@ struct MediaCard: View {
                 }
             }
             .padding(.horizontal, 10)
-            .onChange(of: playing.title) { _, _ in
-                // Смена трека отзывается лёгким «вдохом» обложки.
-                artworkPulse = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { artworkPulse = false }
-            }
+        }
+    }
+
+    /// Вторая строка карточки.
+    ///
+    /// По нажатой ⌥ она показывает то, чего в вырезе обычно нет места
+    /// показывать: альбом и откуда играет. Отдельной строки под это нет
+    /// намеренно — панель и так растёт по содержимому.
+    private func secondLine(_ playing: NowPlayingProvider.NowPlaying) -> String {
+        if didCopy { return t("ui.9c2b5e70", "Скопировано") }
+
+        if modifiers.isOptionDown {
+            let parts = [playing.album, playing.appName].compactMap { $0 }.filter { !$0.isEmpty }
+            if !parts.isEmpty { return parts.joined(separator: " · ") }
+        }
+        return playing.subtitle ?? playing.appName
+    }
+
+    /// «Исполнитель — Трек» в буфер: этим делятся чаще всего, а
+    /// перепечатывать с экрана неудобно.
+    private func copy(_ playing: NowPlayingProvider.NowPlaying) {
+        let line = [playing.subtitle, playing.title]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " — ")
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(line, forType: .string)
+
+        withAnimation(AuraAnimation.content) { didCopy = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(AuraAnimation.content) { didCopy = false }
         }
     }
 
@@ -66,6 +114,16 @@ struct MediaCard: View {
 
     @ViewBuilder
     private func artwork(_ playing: NowPlayingProvider.NowPlaying) -> some View {
+        if heroArtworkActive {
+            Color.clear
+                .frame(width: settings.artworkSize, height: settings.artworkSize)
+        } else {
+            ownArtwork(playing)
+        }
+    }
+
+    @ViewBuilder
+    private func ownArtwork(_ playing: NowPlayingProvider.NowPlaying) -> some View {
         Group {
             if let image = playing.artwork {
                 Image(nsImage: image)
@@ -88,8 +146,6 @@ struct MediaCard: View {
                 .stroke(.white.opacity(0.1), lineWidth: 0.5)
         }
         .shadow(color: accent.opacity(0.35), radius: 18, y: 8)
-        .scaleEffect(artworkPulse ? 1.05 : 1)
-        .animation(AuraAnimation.touch, value: artworkPulse)
         .animation(AuraAnimation.content, value: playing.artwork)
     }
 
@@ -98,6 +154,11 @@ struct MediaCard: View {
     @ViewBuilder
     private func seekBar(_ playing: NowPlayingProvider.NowPlaying, at date: Date) -> some View {
         if let progress = playing.progress(at: date) {
+            // Пока ведут пальцем — полоса слушается пальца, а не плеера.
+            let shown = scrubbing ?? progress
+            let elapsed = scrubbing.map { (playing.duration ?? 0) * $0 }
+                ?? playing.elapsedNow(at: date)
+
             VStack(spacing: 5) {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
@@ -110,21 +171,42 @@ struct MediaCard: View {
                                     endPoint: .trailing
                                 )
                             )
-                            .frame(width: max(0, geometry.size.width * progress))
+                            .frame(width: max(0, geometry.size.width * shown))
+
+                        // Ручка появляется только на время ведения: в покое
+                        // она превращает полосу в элемент управления, которым
+                        // пользуются раз в десять треков.
+                        if scrubbing != nil {
+                            Circle()
+                                .fill(.white)
+                                .frame(width: 11, height: 11)
+                                .shadow(color: .black.opacity(0.4), radius: 3)
+                                .offset(x: max(0, geometry.size.width * shown - 5.5))
+                        }
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture { point in
-                        guard let duration = playing.duration, duration > 0 else { return }
-                        media.seek(to: duration * min(1, max(0, point.x / geometry.size.width)))
-                    }
+                    .contentShape(Rectangle().inset(by: -8))
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                scrubbing = min(1, max(0, value.location.x / geometry.size.width))
+                            }
+                            .onEnded { value in
+                                let share = min(1, max(0, value.location.x / geometry.size.width))
+                                scrubbing = nil
+                                guard let duration = playing.duration, duration > 0 else { return }
+                                media.seek(to: duration * share)
+                            }
+                    )
                 }
                 .frame(height: 6)
+                .animation(AuraAnimation.touch, value: scrubbing != nil)
 
                 HStack {
-                    Text(Self.time(playing.elapsedNow(at: date)))
+                    Text(Self.time(elapsed))
+                        .foregroundStyle(.white.opacity(scrubbing == nil ? 0.45 : 0.9))
                     Spacer()
                     if settings.showRemainingTime, let duration = playing.duration {
-                        Text("-" + Self.time(duration - (playing.elapsedNow(at: date) ?? 0)))
+                        Text("-" + Self.time(duration - (elapsed ?? 0)))
                     } else {
                         Text(Self.time(playing.duration))
                     }

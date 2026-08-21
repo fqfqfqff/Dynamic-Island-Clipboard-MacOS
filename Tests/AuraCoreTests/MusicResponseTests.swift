@@ -3,7 +3,9 @@ import XCTest
 
 final class MusicResponseTests: XCTestCase {
     func testParsesSpotifyAnswerWithArtwork() throws {
-        let text = "DINERO\nBig Baby Tape\n215000\n42.5\ntrue\nhttps://i.scdn.co/image/abc"
+        // Порядок строк: название, исполнитель, длительность, позиция,
+        // играет ли, альбом, ссылка на обложку.
+        let text = "DINERO\nBig Baby Tape\n215000\n42.5\ntrue\nDragonborn\nhttps://i.scdn.co/image/abc"
         let response = try XCTUnwrap(MusicResponse.parse(text, durationDivisor: 1000))
 
         XCTAssertEqual(response.title, "DINERO")
@@ -11,7 +13,17 @@ final class MusicResponseTests: XCTestCase {
         XCTAssertEqual(response.duration, 215, "Spotify отдаёт миллисекунды")
         XCTAssertEqual(response.elapsed, 42.5)
         XCTAssertTrue(response.isPlaying)
+        XCTAssertEqual(response.album, "Dragonborn")
         XCTAssertEqual(response.artworkURL, "https://i.scdn.co/image/abc")
+    }
+
+    /// Музыка обложку ссылкой не отдаёт — у неё последняя строка альбом.
+    func testParsesAlbumWithoutArtwork() throws {
+        let response = try XCTUnwrap(
+            MusicResponse.parse("Трек\nИсполнитель\n180\n12\ntrue\nЛучшее", durationDivisor: 1)
+        )
+        XCTAssertEqual(response.album, "Лучшее")
+        XCTAssertNil(response.artworkURL)
     }
 
     func testParsesMusicAnswerWithoutArtwork() throws {

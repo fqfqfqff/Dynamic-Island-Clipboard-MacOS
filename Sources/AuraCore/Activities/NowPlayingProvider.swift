@@ -16,6 +16,8 @@ final class NowPlayingProvider: ObservableObject {
         var title: String
         var subtitle: String?
         var appName: String
+        /// Альбом: показывается по нажатой ⌥, когда одного названия мало.
+        var album: String?
         var artwork: NSImage?
         /// Заранее размытая копия обложки для подложки острова.
         var blurredArtwork: NSImage?
@@ -100,6 +102,24 @@ final class NowPlayingProvider: ObservableObject {
     private var silentPolls = 0
     private var lastSuccess: Date?
     private var lastFailureReason = "опроса ещё не было"
+    /// Слушает кандидата, чтобы отличить играющее приложение от того,
+    /// которое просто держит открытый поток вывода.
+    private let probe = AudioLevelProbe()
+    /// Источники, признанные немыми, — ненадолго, иначе прослушивание
+    /// каждый раз упиралось бы в одно и то же молчащее приложение.
+    private var silentUntil: [pid_t: Date] = [:]
+    /// Заголовки вкладок браузеров: читаются асинхронно, показываются сразу.
+    private var browserTitles: [String: (title: String, at: Date)] = [:]
+    private var playerObservers: [NSObjectProtocol] = []
+
+    /// Плееры сообщают о смене трека сами, и это единственный способ узнать
+    /// о ней сразу. Ждать очередного опроса — до четырёх секунд со старой
+    /// обложкой в вырезе; именно так это и выглядело. Разрешений рассылка
+    /// не требует.
+    private static let playerNotifications = [
+        "com.spotify.client.PlaybackStateChanged",
+        "com.apple.iTunes.playerInfo",
+    ]
 
     init(center: ActivityCenter, settings: SettingsStore, lyrics: LyricsProvider) {
         self.center = center
@@ -109,7 +129,10 @@ final class NowPlayingProvider: ObservableObject {
 
     var diagnostics: [String: Any] {
         [
-            "источникиЗвука": AudioProcessMonitor.playingSources().map(\.name),
+            "источникиЗвука": AudioProcessMonitor.playingSources()
+                .map { "\($0.name) [\($0.kind)]" },
+            "прослушивание": probe.summary,
+            "признаныНемыми": silentUntil.filter { $0.value > Date() }.count,
             "запрещены": Array(deniedPlayers),
             "опросИдёт": refreshStartedAt != nil,
             "последнийУспех": lastSuccess.map { Int(-$0.timeIntervalSinceNow) } ?? -1,
@@ -122,26 +145,83 @@ final class NowPlayingProvider: ObservableObject {
     var isDetailed = false {
         didSet {
             guard isDetailed != oldValue, ticker != nil else { return }
-            start()
+            retime()
         }
     }
 
     func start() {
-        stop()
+        retime()
+        observePlayers()
+        refresh()
+    }
+
+    /// Перевести опрос на другой интервал — и только.
+    ///
+    /// Раньше здесь звался `start()`, а тот начинался с `stop()`, который
+    /// сносит всё: тап уровня, подписки на плееры, активность в вырезе
+    /// и сам `nowPlaying`. Происходило это ровно в момент раскрытия панели,
+    /// когда режим переключается на подробный.
+    ///
+    /// Со стороны это и выглядело как подвисание: остров терял содержимое,
+    /// высота панели пересчитывалась прямо посреди анимации, спектр глушил
+    /// и заново создавал агрегатное устройство CoreAudio — а это десятки
+    /// миллисекунд на главном потоке. Потом всё возвращалось.
+    ///
+    /// Опрос здесь намеренно не запускается: полоса длительности и так
+    /// идёт по часам между опросами, а лишняя работа в кадре раскрытия —
+    /// именно то, от чего избавляемся.
+    private func retime() {
+        ticker?.invalidate()
+
         let interval: TimeInterval = isDetailed ? 1.5 : (settings.showLyrics ? 2 : 4)
         let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
-        refresh()
+    }
+
+    private func observePlayers() {
+        guard playerObservers.isEmpty else { return }
+        let center = DistributedNotificationCenter.default()
+
+        playerObservers = Self.playerNotifications.map { name in
+            center.addObserver(
+                forName: Notification.Name(name),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    // Список аудио-процессов кэшируется на полторы секунды;
+                    // на смене трека ждать, пока кэш протухнет, незачем.
+                    AudioProcessMonitor.invalidateCache()
+                    self.refreshStartedAt = nil
+                    self.refresh()
+                }
+            }
+        }
+    }
+
+    private func stopObservingPlayers() {
+        let center = DistributedNotificationCenter.default()
+        playerObservers.forEach(center.removeObserver)
+        playerObservers.removeAll()
     }
 
     func stop() {
         ticker?.invalidate()
         ticker = nil
+        stopObservingPlayers()
+        probe.stop()
         center.remove(id: activityID)
         nowPlaying = nil
+    }
+
+    /// Подставить состояние вручную — для снимков интерфейса и тестов.
+    /// Живой опрос при этом не запускается: сцене нужен только результат.
+    func inject(_ playing: NowPlaying?) {
+        nowPlaying = playing
     }
 
     func retryAccess() {
@@ -214,17 +294,74 @@ final class NowPlayingProvider: ObservableObject {
         silentPolls = 0
 
         // Если звучит плеер, которым мы умеем управлять, — берём его метаданные.
+        // Он отвечает про себя сам и честно, слушать его незачем.
         if !settings.musicAccessBlocked,
            let player = scriptablePlayers.first(where: { player in
                sources.contains { $0.bundleID == player.bundleID }
                    && !deniedPlayers.contains(player.scriptName)
            }) {
+            probe.stop()
             refreshStartedAt = Date()
             askPlayer(player, fallback: sources)
             return
         }
 
-        present(source: AudioProcessMonitor.preferred(from: sources) ?? sources[0])
+        guard let source = choose(from: sources) else {
+            lastFailureReason = "поток вывода открыт, но звука в нём нет"
+            clearActivity()
+            return
+        }
+        present(source: source)
+    }
+
+    /// Кого показывать из тех, кто держит открытый поток вывода.
+    ///
+    /// Сначала по важности источника — плеер важнее браузера, браузер важнее
+    /// мессенджера, — и только потом проверка, что кандидат правда звучит.
+    /// Без проверки в вырезе висел Telegram, у которого поток открыт всё
+    /// время, пока открыто окно.
+    private func choose(
+        from sources: [AudioProcessMonitor.Source]
+    ) -> AudioProcessMonitor.Source? {
+        let ranked = AudioProcessMonitor.ranked(sources).filter { !isKnownSilent($0) }
+        guard let candidate = ranked.first else { return nil }
+
+        // AirPlay слушать нечем: звук идёт мимо процесса-посредника.
+        if candidate.isAirPlay { return candidate }
+
+        guard probe.isAvailable else {
+            // Без разрешения на прослушивание тишину от звука не отличить.
+            // Тогда лучше недосказать, чем соврать: обычные приложения
+            // не показываем вовсе, остаются плееры и браузеры.
+            return candidate.kind >= .browser ? candidate : nil
+        }
+
+        probe.listen(to: candidate.objectID)
+        switch probe.isSilent {
+        case .some(true):
+            markSilent(candidate)
+            return nil
+        case .some(false):
+            return candidate
+        case .none:
+            // Вердикта ещё нет: у плеера и браузера звук — работа, их
+            // показываем сразу, остальных дождёмся.
+            return candidate.kind >= .browser ? candidate : nil
+        }
+    }
+
+    private func isKnownSilent(_ source: AudioProcessMonitor.Source) -> Bool {
+        guard let until = silentUntil[source.pid] else { return false }
+        guard until > Date() else {
+            silentUntil[source.pid] = nil
+            return false
+        }
+        return true
+    }
+
+    private func markSilent(_ source: AudioProcessMonitor.Source) {
+        silentUntil[source.pid] = Date().addingTimeInterval(10)
+        probe.stop()
     }
 
     private func askPlayer(_ player: ScriptablePlayer, fallback sources: [AudioProcessMonitor.Source]) {
@@ -236,7 +373,7 @@ final class NowPlayingProvider: ObservableObject {
             if player state is playing or player state is paused then
                 return (name of current track) & "\\n" & (artist of current track) & "\\n" \
         & (duration of current track) & "\\n" & (player position) & "\\n" \
-        & (player state is playing)\(artworkLine)
+        & (player state is playing) & "\\n" & (album of current track)\(artworkLine)
             end if
         end tell
         """
@@ -281,6 +418,7 @@ final class NowPlayingProvider: ObservableObject {
             title: response.title,
             subtitle: response.artist,
             appName: player.scriptName,
+            album: response.album,
             artwork: artwork,
             blurredArtwork: blurredArtwork,
             duration: response.duration,
@@ -313,9 +451,7 @@ final class NowPlayingProvider: ObservableObject {
         }
 
         let icon = source.icon
-        let title = BrowserTitleReader.isBrowser(source.bundleID)
-            ? (BrowserTitleReader.activeTabTitle(bundleID: source.bundleID) ?? source.name)
-            : source.name
+        let title = browserTitle(for: source) ?? source.name
 
         publish(NowPlaying(
             title: title,
@@ -329,6 +465,30 @@ final class NowPlayingProvider: ObservableObject {
             accent: icon?.accentColor ?? .pink,
             canControl: false
         ))
+    }
+
+    /// Заголовок вкладки браузера — из кэша, обновление в фоне.
+    ///
+    /// Раньше AppleScript выполнялся прямо здесь, на главном потоке: браузер,
+    /// задумавшийся на тяжёлом сайте, подвешивал весь интерфейс вместе с собой.
+    private func browserTitle(for source: AudioProcessMonitor.Source) -> String? {
+        guard source.kind == .browser, let bundleID = source.bundleID else { return nil }
+
+        let cached = browserTitles[bundleID]
+        if let cached, Date().timeIntervalSince(cached.at) < 3 { return cached.title }
+
+        let appName = source.name
+        Task { [weak self, runner] in
+            let title = await BrowserTitleReader.activeTabTitle(bundleID: bundleID, runner: runner)
+            await MainActor.run {
+                guard let self, let title else { return }
+                self.browserTitles[bundleID] = (title, Date())
+                // Заголовок пришёл уже после того, как карточка показана —
+                // обновляем её на месте, не дожидаясь следующего опроса.
+                if self.nowPlaying?.appName == appName { self.refresh() }
+            }
+        }
+        return cached?.title
     }
 
     private func publish(_ playing: NowPlaying) {
@@ -426,7 +586,15 @@ final class NowPlayingProvider: ObservableObject {
                     // Размываем сразу и держим готовую копию: во время
                     // анимации острова считать это уже поздно.
                     self.blurredArtwork = image.blurred(radius: 26)
-                    self.refresh()
+
+                    // Ставим обложку прямо в текущую карточку. Раньше здесь
+                    // запускался новый опрос — ещё один круг AppleScript,
+                    // то есть лишние доли секунды со старой картинкой.
+                    guard var updated = self.nowPlaying else { return }
+                    updated.artwork = image
+                    updated.blurredArtwork = self.blurredArtwork
+                    updated.accent = self.accentColor
+                    self.publish(updated)
                 }
             }
         }.resume()
