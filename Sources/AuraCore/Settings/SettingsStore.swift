@@ -8,15 +8,26 @@ final class SettingsStore: ObservableObject {
     @Published var bottomCornerRadius: Double { didSet { save(bottomCornerRadius, "bottomCornerRadius") } }
     @Published var accessorySlotWidth: Double { didSet { save(accessorySlotWidth, "accessorySlotWidth") } }
     @Published var expandedWidth: Double { didSet { save(expandedWidth, "expandedWidth") } }
-    @Published var expandedHeight: Double { didSet { save(expandedHeight, "expandedHeight") } }
     @Published var backgroundOpacity: Double { didSet { save(backgroundOpacity, "backgroundOpacity") } }
     @Published var showWings: Bool { didSet { save(showWings, "showWings") } }
 
     @Published var showNotch: Bool { didSet { save(showNotch, "showNotch") } }
+    /// Сколько настроек показывать: "minimal", "normal" или "all".
+    ///
+    /// Их больше сорока в девяти разделах, и человеку, который открыл окно
+    /// первый раз, это стена. Уровень отсекает лишнее, ничего не выключая.
+    @Published var detailLevel: String { didSet { save(detailLevel, "detailLevel") } }
+
+    /// Язык интерфейса: "system", "ru" или "en".
+    @Published var language: String {
+        didSet {
+            save(language, "language")
+            Localization.language = language
+        }
+    }
     @Published var paused: Bool { didSet { save(paused, "paused") } }
 
     // Поведение
-    @Published var scrollAdjustsVolume: Bool { didSet { save(scrollAdjustsVolume, "scrollAdjustsVolume") } }
     @Published var scrollSwitchesTrack: Bool { didSet { save(scrollSwitchesTrack, "scrollSwitchesTrack") } }
     @Published var doubleClickTogglesPlayback: Bool { didSet { save(doubleClickTogglesPlayback, "doubleClickTogglesPlayback") } }
     @Published var reactToProximity: Bool { didSet { save(reactToProximity, "reactToProximity") } }
@@ -28,7 +39,13 @@ final class SettingsStore: ObservableObject {
     @Published var hoverDelay: Double { didSet { save(hoverDelay, "hoverDelay") } }
     /// Автоматически сворачивать раскрытую панель через столько секунд.
     @Published var autoCollapseAfter: Double { didSet { save(autoCollapseAfter, "autoCollapseAfter") } }
-    @Published var showChevronHint: Bool { didSet { save(showChevronHint, "showChevronHint") } }
+    /// На сколько точек остров подрастает при наведении.
+    @Published var peekGrowth: Double { didSet { save(peekGrowth, "peekGrowth") } }
+    /// Вид подсказки под вырезом: "chevron", "line", "dot" или "none".
+    @Published var hintStyle: String { didSet { save(hintStyle, "hintStyle") } }
+    /// Характер пружин: 0 — движение успокаивается сразу, 1 — заметно
+    /// отыгрывает назад.
+    @Published var animationBounce: Double { didSet { save(animationBounce, "animationBounce") } }
     @Published var showShadow: Bool { didSet { save(showShadow, "showShadow") } }
     @Published var showBorder: Bool { didSet { save(showBorder, "showBorder") } }
     @Published var backdropBlur: Double { didSet { save(backdropBlur, "backdropBlur") } }
@@ -44,15 +61,41 @@ final class SettingsStore: ObservableObject {
 
     // Источники активностей
     @Published var enableMusic: Bool { didSet { save(enableMusic, "enableMusic") } }
-    @Published var enableVolume: Bool { didSet { save(enableVolume, "enableVolume") } }
     @Published var enableScreenshots: Bool { didSet { save(enableScreenshots, "enableScreenshots") } }
     @Published var enableBattery: Bool { didSet { save(enableBattery, "enableBattery") } }
-    @Published var enableBluetooth: Bool { didSet { save(enableBluetooth, "enableBluetooth") } }
     @Published var enableNotifications: Bool { didSet { save(enableNotifications, "enableNotifications") } }
     @Published var enableFocus: Bool { didSet { save(enableFocus, "enableFocus") } }
     @Published var enableCalendar: Bool { didSet { save(enableCalendar, "enableCalendar") } }
+    /// Спрашивать, что делать с файлом, брошенным на вырез.
+    @Published var dropShowsMenu: Bool { didSet { save(dropShowsMenu, "dropShowsMenu") } }
+    /// Идущие загрузки браузеров.
+    @Published var enableDownloads: Bool { didSet { save(enableDownloads, "enableDownloads") } }
+    /// Wi-Fi, кабель и режим модема.
+    @Published var enableNetwork: Bool { didSet { save(enableNetwork, "enableNetwork") } }
 
     @Published var reactToAudio: Bool { didSet { save(reactToAudio, "reactToAudio") } }
+
+    // Уведомления
+    /// "card" — вырез вырастает карточкой, "badge" — только значок в компактном виде.
+    @Published var notificationStyle: String { didSet { save(notificationStyle, "notificationStyle") } }
+    /// Сколько секунд держать карточку. Ноль — до тех пор, пока не прочитают.
+    @Published var notificationHold: Double { didSet { save(notificationHold, "notificationHold") } }
+    /// Показывать сам текст сообщения. Выключено — видно только от кого и что
+    /// за вложение: вырез видят все, кто смотрит на экран.
+    @Published var notificationShowBody: Bool { didSet { save(notificationShowBody, "notificationShowBody") } }
+    /// Обводка карточки в цвет иконки приложения.
+    @Published var notificationTintFromIcon: Bool { didSet { save(notificationTintFromIcon, "notificationTintFromIcon") } }
+    /// Показывать значок, даже когда приложение сейчас открыто.
+    ///
+    /// По умолчанию да, хотя «правильнее» было бы нет: уведомление от
+    /// приложения, в которое человек смотрит, он уже прочитал. Но пропавший
+    /// значок — тихая поломка, её не отличить от сломанных уведомлений;
+    /// лишний значок виден и убирается одним кликом.
+    @Published var notificationBadgeWhenAppOpen: Bool { didSet { save(notificationBadgeWhenAppOpen, "notificationBadgeWhenAppOpen") } }
+    /// Правила по приложениям: имя → "card", "badge" или "off".
+    @Published var notificationRules: [String: String] { didSet { save(notificationRules, "notificationRules") } }
+    /// От кого уведомления уже приходили — чтобы в настройках было что настраивать.
+    @Published var notificationKnownApps: [String] { didSet { save(notificationKnownApps, "notificationKnownApps") } }
 
     // Оформление: фон, стекло, акцент
     /// "artwork" — размытая обложка, "gradient" — градиент, "solid" — чёрный.
@@ -95,6 +138,11 @@ final class SettingsStore: ObservableObject {
     @Published var clipboardLimit: Int { didSet { save(clipboardLimit, "clipboardLimit") } }
     @Published var persistClipboard: Bool { didSet { save(persistClipboard, "persistClipboard") } }
     @Published var autoPaste: Bool { didSet { save(autoPaste, "autoPaste") } }
+    /// Вставлять с оформлением: шрифтом, цветом, размером.
+    ///
+    /// По умолчанию нет. Текст, перенесённый из письма в заметку вместе
+    /// с чужим шрифтом, — самая частая причина лезть в «вставить как текст».
+    @Published var pasteWithFormatting: Bool { didSet { save(pasteWithFormatting, "pasteWithFormatting") } }
     @Published var archiveEverything: Bool { didSet { save(archiveEverything, "archiveEverything") } }
 
     private let defaults: UserDefaults
@@ -111,13 +159,13 @@ final class SettingsStore: ObservableObject {
         bottomCornerRadius = double("bottomCornerRadius", 22)
         accessorySlotWidth = double("accessorySlotWidth", 44)
         expandedWidth = double("expandedWidth", 320)
-        expandedHeight = double("expandedHeight", 272)
         backgroundOpacity = double("backgroundOpacity", 1)
         showWings = bool("showWings", true)
 
         showNotch = bool("showNotch", true)
+        language = defaults.string(forKey: "language") ?? "system"
+        detailLevel = defaults.string(forKey: "detailLevel") ?? "normal"
         paused = bool("paused", false)
-        scrollAdjustsVolume = bool("scrollAdjustsVolume", true)
         scrollSwitchesTrack = bool("scrollSwitchesTrack", true)
         doubleClickTogglesPlayback = bool("doubleClickTogglesPlayback", true)
         reactToProximity = bool("reactToProximity", true)
@@ -125,7 +173,16 @@ final class SettingsStore: ObservableObject {
         animationSpeed = double("animationSpeed", 1)
         hoverDelay = double("hoverDelay", 0)
         autoCollapseAfter = double("autoCollapseAfter", 0)
-        showChevronHint = bool("showChevronHint", true)
+        peekGrowth = double("peekGrowth", 18)
+        animationBounce = double("animationBounce", 0.45)
+        // Раньше подсказка была просто галочкой «показывать или нет».
+        // Старый выбор переносим, чтобы он не пропал при обновлении.
+        if let style = defaults.string(forKey: "hintStyle") {
+            hintStyle = style
+        } else {
+            hintStyle = (defaults.object(forKey: "showChevronHint") as? Bool ?? true)
+                ? "chevron" : "none"
+        }
         showShadow = bool("showShadow", true)
         showBorder = bool("showBorder", false)
         backdropBlur = double("backdropBlur", 48)
@@ -137,15 +194,24 @@ final class SettingsStore: ObservableObject {
         virtualNotchWidth = double("virtualNotchWidth", 190)
 
         enableMusic = bool("enableMusic", true)
-        enableVolume = bool("enableVolume", true)
         enableScreenshots = bool("enableScreenshots", true)
         enableBattery = bool("enableBattery", true)
-        enableBluetooth = bool("enableBluetooth", true)
         enableNotifications = bool("enableNotifications", false)
         enableFocus = bool("enableFocus", true)
         enableCalendar = bool("enableCalendar", false)
+        enableNetwork = bool("enableNetwork", true)
+        enableDownloads = bool("enableDownloads", true)
+        dropShowsMenu = bool("dropShowsMenu", true)
 
         reactToAudio = bool("reactToAudio", true)
+
+        notificationStyle = defaults.string(forKey: "notificationStyle") ?? "card"
+        notificationHold = double("notificationHold", 5)
+        notificationShowBody = bool("notificationShowBody", true)
+        notificationTintFromIcon = bool("notificationTintFromIcon", true)
+        notificationBadgeWhenAppOpen = bool("notificationBadgeWhenAppOpen", true)
+        notificationRules = defaults.dictionary(forKey: "notificationRules") as? [String: String] ?? [:]
+        notificationKnownApps = defaults.stringArray(forKey: "notificationKnownApps") ?? []
 
         backgroundStyle = defaults.string(forKey: "backgroundStyle") ?? "artwork"
         gradientPreset = defaults.string(forKey: "gradientPreset") ?? "midnight"
@@ -174,19 +240,24 @@ final class SettingsStore: ObservableObject {
         clipboardLimit = defaults.object(forKey: "clipboardLimit") as? Int ?? 100
         persistClipboard = bool("persistClipboard", true)
         autoPaste = bool("autoPaste", true)
+        pasteWithFormatting = bool("pasteWithFormatting", false)
         archiveEverything = bool("archiveEverything", true)
+
+        // Наблюдатели свойств в инициализаторе не вызываются, а язык должен
+        // примениться до первой отрисовки.
+        Localization.language = language
     }
 
     func resetToDefaults() {
         bottomCornerRadius = 22
         accessorySlotWidth = 44
         expandedWidth = 320
-        expandedHeight = 272
         backgroundOpacity = 1
         showWings = true
         showNotch = true
+        language = "system"
+        detailLevel = "normal"
         paused = false
-        scrollAdjustsVolume = true
         scrollSwitchesTrack = true
         doubleClickTogglesPlayback = true
         reactToProximity = true
@@ -194,7 +265,9 @@ final class SettingsStore: ObservableObject {
         animationSpeed = 1
         hoverDelay = 0
         autoCollapseAfter = 0
-        showChevronHint = true
+        peekGrowth = 18
+        hintStyle = "chevron"
+        animationBounce = 0.45
         showShadow = true
         showBorder = false
         backdropBlur = 48
@@ -205,16 +278,24 @@ final class SettingsStore: ObservableObject {
         followMouseScreen = false
         virtualNotchWidth = 190
         enableMusic = true
-        enableVolume = true
         enableScreenshots = true
         enableBattery = true
-        enableBluetooth = true
         enableNotifications = false
         enableFocus = true
         enableCalendar = false
+        enableNetwork = true
+        enableDownloads = true
+        dropShowsMenu = true
+        notificationStyle = "card"
+        notificationHold = 5
+        notificationShowBody = true
+        notificationTintFromIcon = true
+        notificationBadgeWhenAppOpen = true
+        notificationRules = [:]
         clipboardLimit = 100
         persistClipboard = true
         autoPaste = true
+        pasteWithFormatting = false
         archiveEverything = true
         forgetPermissionPrompts()
     }
@@ -257,10 +338,8 @@ final class SettingsStore: ObservableObject {
         switch preset {
         case .minimal:
             enableMusic = true
-            enableVolume = false
-            enableScreenshots = false
+                enableScreenshots = false
             enableBattery = false
-            enableBluetooth = false
             enableNotifications = false
             enableFocus = false
             enableCalendar = false
@@ -273,24 +352,21 @@ final class SettingsStore: ObservableObject {
 
         case .everything:
             enableMusic = true
-            enableVolume = true
             enableScreenshots = true
             enableBattery = true
-            enableBluetooth = true
-            enableNotifications = true
+                enableNotifications = true
             enableFocus = true
             enableCalendar = true
             reactToAudio = true
             showLyrics = true
-            scrollAdjustsVolume = true
-            scrollSwitchesTrack = true
+                scrollSwitchesTrack = true
 
         case .quiet:
             reactToAudio = false
             reactToProximity = false
             animationSpeed = 1.6
             expandOnHover = false
-            showChevronHint = false
+            hintStyle = "none"
         }
     }
 
@@ -314,6 +390,19 @@ final class SettingsStore: ObservableObject {
         showLyrics = false
         barCount = 5
         backdropStrength = 0.78
+    }
+
+    /// Как показывать уведомления от этого приложения.
+    func notificationRule(for app: String) -> String {
+        notificationRules[app] ?? "card"
+    }
+
+    /// Запомнить приложение, чтобы его можно было настроить.
+    func rememberNotificationApp(_ app: String) {
+        guard !notificationKnownApps.contains(app) else { return }
+        // Список не бесконечный: уведомления шлют десятки приложений,
+        // а настраивают из них два-три.
+        notificationKnownApps = (notificationKnownApps + [app]).suffix(20)
     }
 
     private func save(_ value: Any, _ key: String) {

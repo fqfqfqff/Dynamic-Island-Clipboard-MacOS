@@ -6,6 +6,7 @@ public extension Notification.Name {
     static let auraOpenSettings = Notification.Name("aura.openSettings")
     static let auraQuit = Notification.Name("aura.quit")
     static let auraShowOnboarding = Notification.Name("aura.showOnboarding")
+    static let auraQuickMenu = Notification.Name("aura.quickMenu")
 }
 
 enum AppActions {
@@ -15,6 +16,11 @@ enum AppActions {
 
     static func quit() {
         NotificationCenter.default.post(name: .auraQuit, object: nil)
+    }
+
+    /// Долгое нажатие на вырез — быстрое меню под курсором.
+    static func showQuickMenu() {
+        NotificationCenter.default.post(name: .auraQuickMenu, object: nil)
     }
 
     static func showOnboarding() {

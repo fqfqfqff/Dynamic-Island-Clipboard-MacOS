@@ -19,12 +19,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         settings: settings,
         lyrics: lyrics
     )
-    private lazy var volume = VolumeActivityProvider(center: activities)
     private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard)
-    private lazy var bluetooth = BluetoothActivityProvider(center: activities)
-    private lazy var notifications = NotificationMirrorProvider(center: activities)
+    private lazy var notifications = NotificationMirrorProvider(center: activities, settings: settings)
     private lazy var focus = FocusActivityProvider(center: activities)
     private lazy var calendar = CalendarActivityProvider(center: activities)
+    private lazy var network = NetworkActivityProvider(center: activities)
+    private lazy var downloads = DownloadActivityProvider(center: activities)
     private lazy var clipboardWindow = ClipboardWindowController(
         clipboard: clipboard,
         settings: settings
@@ -57,6 +57,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         NotificationCenter.default.addObserver(
             self, selector: #selector(showOnboarding), name: .auraShowOnboarding, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(showQuickMenu), name: .auraQuickMenu, object: nil
+        )
 
         notchController = NotchWindowController(
             activities: activities,
@@ -64,9 +67,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             settings: settings,
             spectrum: spectrum,
             lyrics: lyrics,
-            shelf: shelf
+            shelf: shelf,
+            notifications: notifications
         )
         notchController?.attachToScreenWithNotch()
+
+        // Пришло уведомление — вырез вырастает карточкой. Значок с числом
+        // непрочитанных ставит сам провайдер и держит до прочтения.
+        notifications.onMessage = { [weak self] _ in
+            guard let self, self.settings.notificationStyle == "card" else { return }
+            self.notchController?.presentEvent(hold: self.settings.notificationHold)
+        }
 
         clipboard.start()
         activities.start()
@@ -109,6 +120,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         battery.stop()
         media.stop()
         screenshots.stop()
+        network.stop()
+        downloads.stop()
         control.stop()
         spectrum.stop()
         screenState.stop()
@@ -169,6 +182,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["правоВставки"] = Paster.canPaste
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
+            // Иконка приложения — самое хрупкое место в разборе баннера:
+            // если приложение не опознано, не будет ни значка, ни цвета,
+            // ни снятия по прочтении. Поэтому её видно в диагностике.
+            payload["последнееУведомление"] = notifications.latest.map { message in
+                [
+                    "приложение": message.app,
+                    "значокНайден": message.icon != nil,
+                    "идентификатор": message.bundleID ?? "—",
+                    "тип": String(describing: message.kind),
+                ] as [String: Any]
+            } ?? ["—": true]
             payload["фокус"] = focus.isAvailable
             payload["спектр"] = [
                 "работает": spectrum.isRunning,
@@ -368,11 +392,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         if settings.paused {
             media.stop()
             screenshots.stop()
-            bluetooth.stop()
             notifications.stop()
             focus.stop()
             calendar.stop()
-            volume.stop()
             battery.stop()
             clipboard.stop()
         } else {
@@ -392,6 +414,49 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func openRelease() {
         guard let release = updates.available else { return }
         NSWorkspace.shared.open(release.url)
+    }
+
+    /// Быстрое меню под курсором: то, за чем чаще всего лезут в строку
+    /// состояния, — не выходя из выреза.
+    @objc private func showQuickMenu() {
+        let menu = NSMenu()
+
+        if media.nowPlaying != nil {
+            let playing = media.nowPlaying?.isPlaying == true
+            menu.addItem(
+                withTitle: playing ? t("ui.5a0e73c1", "Пауза") : t("ui.c904e1b7", "Играть"),
+                action: #selector(togglePlayback),
+                keyEquivalent: ""
+            ).target = self
+            menu.addItem(.separator())
+        }
+
+        menu.addItem(
+            withTitle: t("ui.b7f30c25", "Спрятать остров"),
+            action: #selector(hideIsland),
+            keyEquivalent: ""
+        ).target = self
+        menu.addItem(
+            withTitle: t("ui.e6b21f04", "Настройки…"),
+            action: #selector(showSettings),
+            keyEquivalent: ""
+        ).target = self
+        menu.addItem(.separator())
+        menu.addItem(
+            withTitle: t("ui.2a2a0c98", "Выйти из Aura"),
+            action: #selector(quit),
+            keyEquivalent: ""
+        ).target = self
+
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    @objc private func togglePlayback() {
+        media.send(.togglePlayPause)
+    }
+
+    @objc private func hideIsland() {
+        settings.showNotch = false
     }
 
     @objc private func showOnboarding() {
@@ -464,12 +529,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private func applyProviderSettings() {
         settings.enableMusic ? media.start() : media.stop()
         settings.enableScreenshots ? screenshots.start() : screenshots.stop()
-        if settings.enableVolume { volume.start() } else { volume.stop() }
         if settings.enableBattery { battery.start() } else { battery.stop() }
-        if settings.enableBluetooth { bluetooth.start() } else { bluetooth.stop() }
         if settings.enableNotifications { notifications.start() } else { notifications.stop() }
         if settings.enableFocus { focus.start() } else { focus.stop() }
         if settings.enableCalendar { calendar.start() } else { calendar.stop() }
+        if settings.enableNetwork { network.start() } else { network.stop() }
+        if settings.enableDownloads { downloads.start() } else { downloads.stop() }
     }
 
     private func observeProviderSettings() {
@@ -478,13 +543,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         // лишний раз на старте.
         let changes: [AnyPublisher<Void, Never>] = [
             settings.$enableMusic.dropFirst().map { _ in () }.eraseToAnyPublisher(),
-            settings.$enableVolume.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableScreenshots.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableBattery.dropFirst().map { _ in () }.eraseToAnyPublisher(),
-            settings.$enableBluetooth.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableNotifications.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableFocus.dropFirst().map { _ in () }.eraseToAnyPublisher(),
             settings.$enableCalendar.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            settings.$enableNetwork.dropFirst().map { _ in () }.eraseToAnyPublisher(),
+            settings.$enableDownloads.dropFirst().map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes)
             .receive(on: RunLoop.main)

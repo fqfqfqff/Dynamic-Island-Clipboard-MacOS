@@ -136,7 +136,7 @@ extension SettingsStoreTests {
         settings.animationSpeed = 1.6
         settings.hoverDelay = 0.4
         settings.autoCollapseAfter = 12
-        settings.showChevronHint = false
+        settings.hintStyle = "line"
         settings.showShadow = false
         settings.showBorder = true
 
@@ -147,7 +147,7 @@ extension SettingsStoreTests {
         XCTAssertEqual(reloaded.animationSpeed, 1.6)
         XCTAssertEqual(reloaded.hoverDelay, 0.4)
         XCTAssertEqual(reloaded.autoCollapseAfter, 12)
-        XCTAssertFalse(reloaded.showChevronHint)
+        XCTAssertEqual(reloaded.hintStyle, "line")
         XCTAssertFalse(reloaded.showShadow)
         XCTAssertTrue(reloaded.showBorder)
     }
