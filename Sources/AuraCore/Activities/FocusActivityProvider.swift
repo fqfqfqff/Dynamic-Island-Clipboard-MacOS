@@ -11,6 +11,8 @@ import SwiftUI
 final class FocusActivityProvider {
     private let center: ActivityCenter
     private var timer: Timer?
+    private var watcher: DispatchSourceFileSystemObject?
+    private var descriptor: CInt = -1
     private var currentMode: String?
     private let activityID = "system.focus"
 
@@ -40,8 +42,20 @@ final class FocusActivityProvider {
             return
         }
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.check() }
+        // Фокус меняют несколько раз в день, а файл о смене пишется сразу.
+        // Слушаем файл, а не опрашиваем его: пять секунд опроса — это 720
+        // чтений диска в час ради события, которого обычно нет.
+        watch()
+
+        // Файл переписывается целиком, а не правится на месте: система
+        // пишет новый и подменяет. Старый дескриптор после этого мёртв,
+        // поэтому редкая проверка нужна как страховка и как способ
+        // заметить подмену.
+        let timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.check()
+                self?.rewatchIfNeeded()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -51,8 +65,61 @@ final class FocusActivityProvider {
     func stop() {
         timer?.invalidate()
         timer = nil
+        watcher?.cancel()
+        watcher = nil
+        descriptor = -1
         center.remove(id: activityID)
         currentMode = nil
+    }
+
+    // MARK: - Слежение за файлом
+
+    private func watch() {
+        watcher?.cancel()
+        watcher = nil
+        descriptor = -1
+
+        descriptor = open(assertionsURL.path, O_EVTONLY)
+        guard descriptor >= 0 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor,
+            eventMask: [.write, .extend, .delete, .rename],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let event = self.watcher?.data ?? []
+                self.check()
+
+                // Файл подменили — следить больше не за чем, дескриптор
+                // указывает на удалённый файл. Открываем заново.
+                if event.contains(.delete) || event.contains(.rename) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        MainActor.assumeIsolated {
+                            self.watch()
+                            self.check()
+                        }
+                    }
+                }
+            }
+        }
+        // Дескриптор захватывается значением, а не читается через `self`.
+        // Отмена приходит асинхронно: к моменту, когда обработчик отработает,
+        // `self.descriptor` уже может указывать на новое слежение — и тогда
+        // старая отмена закроет свежий дескриптор. Именно так молча ломались
+        // снимки экрана: второй `start()` следил за закрытым файлом, событий
+        // не приходило, ошибок тоже.
+        let watched = descriptor
+        source.setCancelHandler { close(watched) }
+        source.resume()
+        watcher = source
+    }
+
+    private func rewatchIfNeeded() {
+        guard watcher == nil else { return }
+        watch()
     }
 
     private func check() {

@@ -212,3 +212,78 @@ extension ClipboardTests {
         )
     }
 }
+
+/// Снимок кладётся в буфер двумя представлениями сразу: ссылкой на файл
+/// и самой картинкой. Одним типом всегда проигрываешь половине приложений —
+/// почта хочет файл, редактор хочет изображение.
+@MainActor
+final class ScreenshotClipboardTests: XCTestCase {
+    private var folder: URL!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        folder = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: folder)
+        try super.tearDownWithError()
+    }
+
+    private func makePNG(named name: String) throws -> URL {
+        let image = NSImage(size: CGSize(width: 8, height: 8))
+        image.lockFocus()
+        NSColor.systemTeal.setFill()
+        NSRect(x: 0, y: 0, width: 8, height: 8).fill()
+        image.unlockFocus()
+
+        let data = try XCTUnwrap(
+            NSBitmapImageRep(data: image.tiffRepresentation ?? Data())?
+                .representation(using: .png, properties: [:])
+        )
+        let url = folder.appendingPathComponent(name)
+        try data.write(to: url)
+        return url
+    }
+
+    func testScreenshotCarriesBothFileAndPicture() throws {
+        let url = try makePNG(named: "Снимок экрана.png")
+        let pasteboard = NSPasteboard(name: .init("aura.tests.\(UUID().uuidString)"))
+        pasteboard.clearContents()
+
+        ClipboardService.write(files: [url], to: pasteboard)
+
+        let types = pasteboard.pasteboardItems?.first?.types ?? []
+        XCTAssertTrue(types.contains(.fileURL), "почта прикладывает файл — ссылка нужна")
+        XCTAssertTrue(types.contains(.png), "редактор вставляет картинку — данные нужны")
+        XCTAssertNotNil(NSImage(pasteboard: pasteboard))
+    }
+
+    /// Запись экрана — не картинка: класть в буфер нечего, кроме ссылки,
+    /// и притворяться изображением она не должна.
+    func testScreenRecordingGoesInAsAFileOnly() throws {
+        let url = folder.appendingPathComponent("Запись экрана.mov")
+        try Data("не видео, но расширение то самое".utf8).write(to: url)
+
+        let pasteboard = NSPasteboard(name: .init("aura.tests.\(UUID().uuidString)"))
+        pasteboard.clearContents()
+        ClipboardService.write(files: [url], to: pasteboard)
+
+        let types = pasteboard.pasteboardItems?.first?.types ?? []
+        XCTAssertTrue(types.contains(.fileURL))
+        XCTAssertNil(ClipboardService.imageType(of: url))
+    }
+
+    func testKnownPictureFormatsAreRecognised() {
+        let cases: [(String, Bool)] = [
+            ("снимок.png", true), ("снимок.PNG", true), ("фото.jpeg", true),
+            ("скан.pdf", true), ("файл.zip", false), ("текст.txt", false),
+        ]
+        for (name, expected) in cases {
+            let url = URL(fileURLWithPath: "/tmp/\(name)")
+            XCTAssertEqual(ClipboardService.imageType(of: url) != nil, expected, name)
+        }
+    }
+}

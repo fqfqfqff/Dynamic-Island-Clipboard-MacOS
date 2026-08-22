@@ -416,6 +416,12 @@ struct SettingsView: View {
             group("Что показывать в вырезе") {
                 Toggle(t("ui.7b8d5ba8", "Музыка и любой звук"), isOn: $settings.enableMusic)
                 Toggle(t("ui.d7068ba5", "Снимки экрана"), isOn: $settings.enableScreenshots)
+                if settings.enableScreenshots {
+                    Toggle(t("ui.3c81ea47", "Класть снимок сразу в буфер обмена"),
+                           isOn: $settings.copyScreenshotToClipboard)
+                        .padding(.leading, 18)
+                    hint("Снимок сохраняется на диск как обычно и одновременно попадает в буфер: ⌘V вставит картинку, а почта приложит файл. Скачанные и просто новые файлы буфер не трогают — только снимки.")
+                }
                 Toggle(t("ui.fe2a94d0", "Зарядка"), isOn: $settings.enableBattery)
                 Toggle(t("ui.d6137b6d", "Режим фокусирования"), isOn: $settings.enableFocus)
                 Toggle(t("ui.963d7c59", "Ближайшая встреча из Календаря"), isOn: $settings.enableCalendar)

@@ -14,6 +14,12 @@ final class ClipboardService: ObservableObject {
     private var lastChangeCount = NSPasteboard.general.changeCount
 
     private let pollInterval: TimeInterval = 0.45
+    /// Пока человек не за компьютером, буфер меняться почти не может:
+    /// копирует всегда он сам. Исключение — универсальный буфер с телефона,
+    /// но лишние две секунды задержки там ничего не решают.
+    private let awayPollInterval: TimeInterval = 2.5
+    private let awayAfter: TimeInterval = 30
+    private var isAway = false
     private let settings: SettingsStore
 
     init(settings: SettingsStore) {
@@ -44,12 +50,33 @@ final class ClipboardService: ObservableObject {
     ]
 
     func start() {
+        schedule()
+    }
+
+    private func schedule() {
         stop()
-        let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+        let interval = isAway ? awayPollInterval : pollInterval
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    /// Прочитать буфер прямо сейчас, не дожидаясь следующего опроса.
+    /// Нужно при открытии истории: человек мог скопировать что-то за
+    /// мгновение до этого.
+    func pollNow() {
+        adaptInterval()
+        poll()
+    }
+
+    /// Реже опрашивать, когда за компьютером никого нет.
+    private func adaptInterval() {
+        let away = IdleWatcher.secondsSinceLastInput() >= awayAfter
+        guard away != isAway else { return }
+        isAway = away
+        schedule()
     }
 
     func stop() {
@@ -211,7 +238,7 @@ final class ClipboardService: ObservableObject {
         case .image(let image):
             pasteboard.writeObjects([image])
         case .files(let urls):
-            pasteboard.writeObjects(urls as [NSURL])
+            Self.write(files: urls, to: pasteboard)
         case .color(let color):
             pasteboard.setString(color.hexString, forType: .string)
         }
@@ -220,9 +247,64 @@ final class ClipboardService: ObservableObject {
         lastChangeCount = pasteboard.changeCount
     }
 
+    /// Кладёт только что сделанный снимок в системный буфер.
+    ///
+    /// macOS умеет снимать сразу в буфер (⌃⌘⇧4), но помнить эту комбинацию
+    /// приходится заранее — а решение «нужен файл или вставить» принимается
+    /// уже после снимка. Поэтому снимок ложится и на диск, и в буфер.
+    func copyScreenshot(_ url: URL) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        Self.write(files: [url], to: pasteboard)
+        lastChangeCount = pasteboard.changeCount
+    }
+
+    /// Файл кладётся в буфер двумя представлениями сразу: ссылкой и, если это
+    /// картинка, самим изображением. Приложение возьмёт то, что понимает:
+    /// почта приложит файл, редактор вставит картинку. Одним типом всегда
+    /// проигрываешь половине приложений.
+    static func write(files urls: [URL], to pasteboard: NSPasteboard) {
+        let item = NSPasteboardItem()
+        var wroteAnything = false
+
+        if urls.count == 1, let url = urls.first {
+            item.setString(url.absoluteString, forType: .fileURL)
+            wroteAnything = true
+
+            // Читаем с диска отображением в память: снимок Retina-экрана
+            // весит мегабайты, и копировать их в кучу незачем.
+            if let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+               let type = imageType(of: url) {
+                item.setData(data, forType: type)
+            }
+        }
+
+        if wroteAnything {
+            pasteboard.writeObjects([item])
+        } else {
+            pasteboard.writeObjects(urls as [NSURL])
+        }
+    }
+
+    /// Тип пастборда по расширению файла. Перекодировать ничего не нужно —
+    /// данные кладутся как есть, лишь бы получатель знал, что это.
+    static func imageType(of url: URL) -> NSPasteboard.PasteboardType? {
+        switch url.pathExtension.lowercased() {
+        case "png": return .png
+        case "tiff", "tif": return .tiff
+        case "jpg", "jpeg": return NSPasteboard.PasteboardType("public.jpeg")
+        case "heic": return NSPasteboard.PasteboardType("public.heic")
+        case "pdf": return .pdf
+        default: return nil
+        }
+    }
+
     private func poll() {
         let pasteboard = NSPasteboard.general
-        guard pasteboard.changeCount != lastChangeCount else { return }
+        guard pasteboard.changeCount != lastChangeCount else {
+            adaptInterval()
+            return
+        }
         lastChangeCount = pasteboard.changeCount
 
         guard let types = pasteboard.types else { return }

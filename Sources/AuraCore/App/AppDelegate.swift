@@ -19,7 +19,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         settings: settings,
         lyrics: lyrics
     )
-    private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard)
+    private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard, settings: settings)
     private lazy var notifications = NotificationMirrorProvider(center: activities, settings: settings)
     private lazy var focus = FocusActivityProvider(center: activities)
     private lazy var calendar = CalendarActivityProvider(center: activities)
@@ -212,6 +212,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["правоВставки"] = Paster.canPaste
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
+            payload["снимки"] = screenshots.diagnostics
             // Иконка приложения — самое хрупкое место в разборе баннера:
             // если приложение не опознано, не будет ни значка, ни цвета,
             // ни снятия по прочтении. Поэтому её видно в диагностике.

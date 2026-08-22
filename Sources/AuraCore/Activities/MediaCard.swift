@@ -62,9 +62,16 @@ struct MediaCard: View {
                 VStack(spacing: 2) {
                     if settings.showSeekBar {
                         // Полоса идёт по часам между опросами — иначе она стоит
-                        // на месте и дёргается раз в несколько секунд.
-                        TimelineView(.periodic(from: .now, by: 0.2)) { context in
-                            seekBar(playing, at: context.date)
+                        // на месте и дёргается раз в несколько секунд. На паузе
+                        // двигать нечего: там достаточно одного кадра.
+                        Group {
+                            if playing.isPlaying {
+                                TimelineView(.periodic(from: .now, by: 0.2)) { context in
+                                    seekBar(playing, at: context.date)
+                                }
+                            } else {
+                                seekBar(playing, at: .now)
+                            }
                         }
                         .frame(height: 26)
                     }

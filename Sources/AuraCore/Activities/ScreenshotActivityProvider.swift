@@ -8,6 +8,7 @@ import SwiftUI
 final class ScreenshotActivityProvider {
     private let center: ActivityCenter
     private let clipboard: ClipboardService
+    private let settings: SettingsStore
     private var source: DispatchSourceFileSystemObject?
     private var descriptor: CInt = -1
     private var known: Set<String> = []
@@ -15,10 +16,18 @@ final class ScreenshotActivityProvider {
 
     private let extensions: Set<String> = ["png", "jpg", "jpeg", "heic", "tiff", "pdf", "mov"]
 
-    init(center: ActivityCenter, clipboard: ClipboardService) {
+    /// `folder` задаётся только в тестах: следить за настоящим рабочим столом
+    /// они не должны.
+    init(
+        center: ActivityCenter,
+        clipboard: ClipboardService,
+        settings: SettingsStore,
+        folder: URL? = nil
+    ) {
         self.center = center
         self.clipboard = clipboard
-        self.folder = Self.screenshotFolder()
+        self.settings = settings
+        self.folder = folder ?? Self.screenshotFolder()
     }
 
     func start() {
@@ -39,11 +48,14 @@ final class ScreenshotActivityProvider {
         source.setEventHandler { [weak self] in
             MainActor.assumeIsolated { self?.scan() }
         }
-        source.setCancelHandler { [weak self] in
-            guard let self, self.descriptor >= 0 else { return }
-            close(self.descriptor)
-            self.descriptor = -1
-        }
+        // Дескриптор захватывается значением, а не читается через `self`.
+        // Отмена приходит асинхронно: к моменту, когда обработчик отработает,
+        // `self.descriptor` уже может указывать на новое слежение — и тогда
+        // старая отмена закроет свежий дескриптор. Именно так молча ломались
+        // снимки экрана: второй `start()` следил за закрытым файлом, событий
+        // не приходило, ошибок тоже.
+        let watched = descriptor
+        source.setCancelHandler { close(watched) }
         source.resume()
         self.source = source
     }
@@ -51,6 +63,19 @@ final class ScreenshotActivityProvider {
     func stop() {
         source?.cancel()
         source = nil
+        descriptor = -1
+    }
+
+    /// Почему снимки могут не появляться. Папку снимков закрывает TCC:
+    /// приложение без разрешения на «Рабочий стол» видит её пустой — молча,
+    /// без ошибки. Отличить это от «просто ничего не снимали» иначе нельзя.
+    var diagnostics: [String: Any] {
+        [
+            "папка": folder.path,
+            "слежение": source != nil,
+            "видноФайлов": Self.files(in: folder, extensions: extensions).count,
+            "вБуфер": settings.copyScreenshotToClipboard,
+        ]
     }
 
     private func scan() {
@@ -83,6 +108,13 @@ final class ScreenshotActivityProvider {
                 sourceName: isScreenshot ? "Снимок экрана" : "Новый файл"
             )
         )
+
+        // В системный буфер — только снимки. На рабочий стол попадает и всё
+        // скачанное, и подменять буфер каждый раз, когда там появился файл,
+        // было бы прямым вредительством.
+        if isScreenshot, settings.copyScreenshotToClipboard {
+            clipboard.copyScreenshot(url)
+        }
 
         center.upsert(
             Activity(

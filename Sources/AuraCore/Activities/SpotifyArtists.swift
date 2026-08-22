@@ -19,6 +19,10 @@ enum SpotifyArtists {
     /// у него не меняется. Кэш переживает перезапуск — иначе после каждого
     /// включения приложения второй исполнитель снова приезжал бы с задержкой.
     private nonisolated(unsafe) static var cache: [String: String] = loadCache()
+    /// Пометка кажется лишней: на нынешнем компиляторе `NSLock` уже помечен
+    /// `Sendable`, и он об этом предупреждает. Убирать нельзя — на SDK, где
+    /// пометки ещё нет, без неё не собирается вовсе. Предупреждение дешевле
+    /// поломанной сборки.
     private nonisolated(unsafe) static let lock = NSLock()
 
     private static var cacheURL: URL {

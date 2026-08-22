@@ -10,7 +10,7 @@ final class NotchViewModelTests: XCTestCase {
         expandOnHover: Bool = false,
         hasContent: Bool = true
     ) -> NotchViewModel {
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let settings = SettingsStore(defaults: TestDefaults.make())
         settings.expandOnHover = expandOnHover
 
         let notch = CGRect(x: 750, y: screenFrame.maxY - 38, width: 209, height: 38)

@@ -13,7 +13,7 @@ import XCTest
 final class LeakTests: XCTestCase {
 
     private func makeShowcase() -> ShowcaseWindowController {
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let settings = SettingsStore(defaults: TestDefaults.make())
         let activities = ActivityCenter()
         let lyrics = LyricsProvider()
         let media = NowPlayingProvider(center: activities, settings: settings, lyrics: lyrics)

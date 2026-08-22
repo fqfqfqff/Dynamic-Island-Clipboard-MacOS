@@ -62,6 +62,7 @@ final class SettingsStore: ObservableObject {
     // Источники активностей
     @Published var enableMusic: Bool { didSet { save(enableMusic, "enableMusic") } }
     @Published var enableScreenshots: Bool { didSet { save(enableScreenshots, "enableScreenshots") } }
+    @Published var copyScreenshotToClipboard: Bool { didSet { save(copyScreenshotToClipboard, "copyScreenshotToClipboard") } }
     @Published var enableBattery: Bool { didSet { save(enableBattery, "enableBattery") } }
     @Published var enableNotifications: Bool { didSet { save(enableNotifications, "enableNotifications") } }
     @Published var enableFocus: Bool { didSet { save(enableFocus, "enableFocus") } }
@@ -210,6 +211,7 @@ final class SettingsStore: ObservableObject {
 
         enableMusic = bool("enableMusic", true)
         enableScreenshots = bool("enableScreenshots", true)
+        copyScreenshotToClipboard = bool("copyScreenshotToClipboard", true)
         enableBattery = bool("enableBattery", true)
         enableNotifications = bool("enableNotifications", false)
         enableFocus = bool("enableFocus", true)
@@ -298,6 +300,7 @@ final class SettingsStore: ObservableObject {
         virtualNotchWidth = 190
         enableMusic = true
         enableScreenshots = true
+        copyScreenshotToClipboard = true
         enableBattery = true
         enableNotifications = false
         enableFocus = true

@@ -41,6 +41,7 @@ enum BatteryReader {
 final class BatteryActivityProvider {
     private let center: ActivityCenter
     private var timer: Timer?
+    private var powerSource: CFRunLoopSource?
     private var previous: BatterySnapshot?
 
     private let powerActivityID = "battery.power"
@@ -54,7 +55,24 @@ final class BatteryActivityProvider {
     func start() {
         stop()
         tick()
-        let timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+
+        // Питание — событие, а не поток данных: кабель втыкают пару раз
+        // в день. IOKit сам будит нас, когда что-то изменилось, — опрос
+        // раз в три секунды был тысячей пробуждений в час впустую.
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        if let source = IOPSNotificationCreateRunLoopSource({ context in
+            guard let context else { return }
+            let provider = Unmanaged<BatteryActivityProvider>
+                .fromOpaque(context).takeUnretainedValue()
+            MainActor.assumeIsolated { provider.tick() }
+        }, context)?.takeRetainedValue() {
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+            powerSource = source
+        }
+
+        // Подстраховка: оценка «осталось столько-то» пересчитывается системой
+        // и без смены состояния, а событие на это не приходит.
+        let timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -64,6 +82,11 @@ final class BatteryActivityProvider {
     func stop() {
         timer?.invalidate()
         timer = nil
+
+        if let powerSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSource, .defaultMode)
+            self.powerSource = nil
+        }
     }
 
     private func tick() {

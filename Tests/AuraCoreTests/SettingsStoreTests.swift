@@ -4,9 +4,8 @@ import XCTest
 @MainActor
 final class SettingsStoreTests: XCTestCase {
     private func makeStore() -> (SettingsStore, UserDefaults, String) {
-        let name = "aura-tests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        return (SettingsStore(defaults: defaults), defaults, name)
+        let defaults = TestDefaults.make()
+        return (SettingsStore(defaults: defaults), defaults, TestDefaults.suite)
     }
 
     func testDefaultsAreSane() {

@@ -30,6 +30,11 @@ final class ClipboardWindowController {
     }
 
     func show() {
+        // Опрос буфера замедляется, когда человека нет за компьютером.
+        // Историю открывают сразу после копирования — читаем прямо сейчас,
+        // иначе только что скопированного в списке не окажется.
+        clipboard.pollNow()
+
         let panel = self.panel ?? makePanel()
         self.panel = panel
 
@@ -60,21 +65,25 @@ final class ClipboardWindowController {
 
         // Глобальный монитор ловит клики в чужих приложениях; события внутри
         // Aura до него не доходят, поэтому клик по самой истории её не закроет.
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
-            MainActor.assumeIsolated { self?.hide() }
-        } {
-            outsideClickMonitors.append(global)
-        }
+        let global = NSEvent.addGlobalMonitorForEvents(
+            matching: mask,
+            handler: { [weak self] _ in
+                MainActor.assumeIsolated { self?.hide() }
+            }
+        )
+        if let global { outsideClickMonitors.append(global) }
 
         // Локальный нужен для остальных окон Aura — например, настроек.
-        if let local = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-            MainActor.assumeIsolated {
-                if let self, event.window !== self.panel { self.hide() }
+        let local = NSEvent.addLocalMonitorForEvents(
+            matching: mask,
+            handler: { [weak self] event in
+                MainActor.assumeIsolated {
+                    if let self, event.window !== self.panel { self.hide() }
+                }
+                return event
             }
-            return event
-        } {
-            outsideClickMonitors.append(local)
-        }
+        )
+        if let local { outsideClickMonitors.append(local) }
     }
 
     private func stopWatchingOutsideClicks() {
