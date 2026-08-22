@@ -319,7 +319,7 @@ final class NotificationMirrorProvider: ObservableObject {
         guard rule != "off" else { return }
 
         let application = Self.application(named: content.app)
-        let icon = application?.icon
+        let icon = Self.icon(named: content.app)
         let kind = Self.kind(from: content.body)
         let tint = settings.notificationTintFromIcon
             ? (icon?.accentColor ?? .indigo)
@@ -485,6 +485,64 @@ final class NotificationMirrorProvider: ObservableObject {
     /// «Telegram», и разный регистр. Промах здесь стоит дорого — без
     /// приложения нет ни значка, ни цвета, ни снятия по прочтении, — поэтому
     /// ищем в четыре захода, от точного совпадения к нестрогому.
+    /// Иконка приложения по имени из баннера.
+    ///
+    /// Уведомления с айфона приходят от приложений, которых на Маке может
+    /// не быть запущено вовсе — а часто и не установлено. Поэтому сначала
+    /// ищем среди запущенных, потом среди установленных на диске, и только
+    /// потом сдаёмся.
+    static func icon(named name: String) -> NSImage? {
+        if let running = application(named: name) { return running.icon }
+        guard let url = installedApplication(named: name) else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
+
+    /// Установленные приложения: имя → бандл.
+    ///
+    /// Перебор папок стоит десятки миллисекунд, а состав меняется редко,
+    /// поэтому список собирается один раз и живёт до перезапуска.
+    private nonisolated(unsafe) static var installed: [String: URL]?
+
+    private static func installedApplication(named name: String) -> URL? {
+        if installed == nil { installed = scanApplications() }
+        let target = normalized(name)
+        guard !target.isEmpty, let installed else { return nil }
+
+        if let exact = installed[target] { return exact }
+        // Нестрого: «WhatsApp Messenger» на телефоне и «WhatsApp» на Маке.
+        return installed.first { $0.key.hasPrefix(target) || target.hasPrefix($0.key) }?.value
+    }
+
+    private static func scanApplications() -> [String: URL] {
+        let folders = [
+            "/Applications",
+            "/Applications/Utilities",
+            "/System/Applications",
+            NSHomeDirectory() + "/Applications",
+        ].map { URL(fileURLWithPath: $0) }
+
+        var result: [String: URL] = [:]
+        for folder in folders {
+            let items = (try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+            )) ?? []
+
+            for url in items where url.pathExtension == "app" {
+                let names = [
+                    Bundle(url: url)?.displayName,
+                    url.deletingPathExtension().lastPathComponent,
+                ].compactMap { $0 }
+
+                for name in names {
+                    let key = normalized(name)
+                    guard !key.isEmpty, result[key] == nil else { continue }
+                    result[key] = url
+                }
+            }
+        }
+        return result
+    }
+
     private static func application(named name: String) -> NSRunningApplication? {
         let target = normalized(name)
         guard !target.isEmpty else { return nil }

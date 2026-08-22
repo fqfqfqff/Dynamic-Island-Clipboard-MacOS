@@ -99,3 +99,21 @@ final class InterfaceLanguageTests: XCTestCase {
         }
     }
 }
+
+/// Уведомления с айфона приходят от приложений, которых на Маке может
+/// не быть запущено вовсе. Иконку нужно искать и среди установленных.
+@MainActor
+final class NotificationIconTests: XCTestCase {
+    func testFindsIconOfAnAppThatIsNotRunning() throws {
+        // Системные приложения есть на любой машине, но запущены далеко
+        // не всегда — на них и проверяем.
+        let candidates = ["Калькулятор", "Calculator", "Шахматы", "Chess"]
+        let found = candidates.compactMap { NotificationMirrorProvider.icon(named: $0) }
+
+        XCTAssertFalse(found.isEmpty, "не нашлось ни одного установленного приложения")
+    }
+
+    func testUnknownAppHasNoIcon() {
+        XCTAssertNil(NotificationMirrorProvider.icon(named: "такого приложения нет нигде"))
+    }
+}
