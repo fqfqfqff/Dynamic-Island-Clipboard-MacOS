@@ -314,7 +314,12 @@ final class NotchViewModel: ObservableObject {
             // Порог крупнее: близость публикуется двадцать раз в секунду,
             // и каждая публикация — это пересчёт тела всего острова.
             if abs(next - proximity) > 0.05 {
-                withAnimation(.smooth(duration: 0.25)) { proximity = next }
+                // Та же пружина, что у смены состояния: близость двигает
+                // ту же высоту острова, и вторая кривая на ней читается
+                // как дрожание на подлёте курсора.
+                withAnimation(AuraAnimation.accessory(settings: settings)) {
+                    proximity = next
+                }
             }
         } else if proximity != 0 {
             proximity = 0

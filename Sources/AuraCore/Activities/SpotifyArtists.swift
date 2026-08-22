@@ -67,7 +67,7 @@ enum SpotifyArtists {
         return candidate.hasPrefix(known)
     }
 
-/// Содержимое мета-тега. Разбирать HTML целиком незачем — нужен один тег.
+    /// Содержимое мета-тега. Разбирать HTML целиком незачем — нужен один тег.
     static func meta(named name: String, in html: String) -> String? {
         guard let range = html.range(of: "property=\"\(name)\"") else { return nil }
         let tail = html[range.upperBound...]

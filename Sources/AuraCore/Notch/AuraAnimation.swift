@@ -12,19 +12,6 @@ import SwiftUI
 ///    панель уже почти раскрылась, и исчезает раньше, чем она начнёт
 ///    сворачиваться, — иначе на экране два несогласованных движения.
 enum AuraAnimation {
-    /// Раскрытие и ширина боковых слотов.
-    ///
-    /// Демпфирование высокое: отскок на панели такого размера выглядит
-    /// дёшево, а на маленькой пилюле его всё равно не видно.
-    static let notch: Animation = .spring(response: 0.48, dampingFraction: 0.84)
-
-    /// Сворачивание — заметно медленнее раскрытия.
-    ///
-    /// Симметричные длительности выглядят неряшливо: раскрытие пользователь
-    /// вызывает сам и ждёт отклика, а сворачивание происходит «вслед» и должно
-    /// успокаиваться, а не схлопываться.
-    static let notchCollapse: Animation = .spring(response: 0.6, dampingFraction: 0.9)
-
     /// Появление содержимого — с задержкой, чтобы дождаться формы.
     static let contentIn: Animation = .easeOut(duration: 0.24).delay(0.1)
 
@@ -67,18 +54,6 @@ extension AnyTransition {
     /// физически не двигается — двигаться может только то, что из-под него
     /// выезжает. Поэтому всё появляется сверху вниз и уходит снизу вверх.
 
-    /// Переход для содержимого раскрытой панели.
-    static var auraContent: AnyTransition {
-        .asymmetric(
-            insertion: .opacity
-                .combined(with: .offset(y: -14))
-                .animation(AuraAnimation.contentIn),
-            removal: .opacity
-                .combined(with: .offset(y: -10))
-                .animation(AuraAnimation.contentOut)
-        )
-    }
-
     /// Переход для компактных значков и подсказки-стрелки: они не возникают
     /// из ниоткуда, а выезжают из-под кромки выреза вниз — и тем же путём
     /// уходят обратно вверх. Смещение одинаковое в обе стороны: уход должен
@@ -87,7 +62,7 @@ extension AnyTransition {
         .asymmetric(
             insertion: .opacity
                 .combined(with: .offset(y: -12))
-                .animation(AuraAnimation.notch),
+                .animation(AuraAnimation.contentIn),
             removal: .opacity
                 .combined(with: .offset(y: -12))
                 .animation(AuraAnimation.contentOut)
