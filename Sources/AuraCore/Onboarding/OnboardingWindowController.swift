@@ -50,6 +50,10 @@ final class OnboardingWindowController {
 
     private func finish() {
         settings.didCompleteOnboarding = true
+        // Закрытого окна мало: внутри живёт вид с таймером обновления
+        // разрешений, и он продолжает опрашивать систему каждые две секунды.
+        window?.contentView = nil
         window?.close()
+        window = nil
     }
 }
