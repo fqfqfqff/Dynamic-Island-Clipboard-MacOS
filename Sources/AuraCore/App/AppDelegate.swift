@@ -19,6 +19,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         settings: settings,
         lyrics: lyrics
     )
+    /// Когда приложение запустилось — чтобы в диагностике было видно,
+    /// за какое время память успела вырасти.
+    private let started = Date()
+
     private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard, settings: settings)
     private lazy var notifications = NotificationMirrorProvider(center: activities, settings: settings)
     private lazy var focus = FocusActivityProvider(center: activities)
@@ -213,6 +217,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
             payload["снимки"] = screenshots.diagnostics
+            // Расход памяти виден сразу: он растёт медленно и незаметно —
+            // за ночь с витриной приложение раздувалось с 80 МБ до 286.
+            payload["памятьМБ"] = Diagnostics.footprintMB
+            payload["живётМинут"] = Int(Date().timeIntervalSince(started) / 60)
             // Иконка приложения — самое хрупкое место в разборе баннера:
             // если приложение не опознано, не будет ни значка, ни цвета,
             // ни снятия по прочтении. Поэтому её видно в диагностике.

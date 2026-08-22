@@ -660,11 +660,16 @@ final class NowPlayingProvider: ObservableObject {
             original.draw(in: CGRect(x: 0, y: 0, width: side, height: side))
             image.unlockFocus()
 
+            // Оригинал в память не кладём. Apple Music отдаёт обложки
+            // до 3000×3000 — это 36 МБ в разобранном виде на каждый трек,
+            // а крупнее 640 её нигде не рисуют: витрина показывает 320.
+            let full = Self.bounded(original, maxSide: 640)
+
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.artworkCache = (urlString, image)
-                    self.fullArtwork = original
+                    self.fullArtwork = full
                     self.accentColor = image.accentColor
                     // Размываем сразу и держим готовую копию: во время
                     // анимации острова считать это уже поздно.
@@ -683,6 +688,22 @@ final class NowPlayingProvider: ObservableObject {
         }.resume()
 
         return artworkCache?.image
+    }
+
+    /// Копия обложки не крупнее заданной стороны. Меньшую отдаёт как есть:
+    /// перерисовывать её незачем, а качество от этого только теряется.
+    nonisolated static func bounded(_ image: NSImage, maxSide: CGFloat) -> NSImage {
+        let size = image.size
+        let longest = max(size.width, size.height)
+        guard longest > maxSide, longest > 0 else { return image }
+
+        let scale = maxSide / longest
+        let target = CGSize(width: size.width * scale, height: size.height * scale)
+        let copy = NSImage(size: target)
+        copy.lockFocus()
+        image.draw(in: CGRect(origin: .zero, size: target))
+        copy.unlockFocus()
+        return copy
     }
 
     private func run(
