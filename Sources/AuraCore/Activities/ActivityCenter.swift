@@ -16,17 +16,34 @@ final class ActivityCenter: ObservableObject {
     var hiddenCount: Int { max(0, activities.count - 1) }
 
     func start() {
-        stop()
-        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.purgeExpired() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        expiryTimer = timer
+        updateExpiryTimer()
     }
 
     func stop() {
         expiryTimer?.invalidate()
         expiryTimer = nil
+    }
+
+    /// Таймер истечения нужен только тогда, когда есть чему истекать.
+    ///
+    /// Раньше он тикал дважды в секунду всё время работы приложения —
+    /// и в покое, когда в вырезе нет вообще ничего. Просыпаться сто семьдесят
+    /// тысяч раз в сутки, чтобы отфильтровать пустой список, незачем.
+    private func updateExpiryTimer() {
+        let needed = activities.contains { $0.expiresAt != nil }
+
+        guard needed else {
+            expiryTimer?.invalidate()
+            expiryTimer = nil
+            return
+        }
+        guard expiryTimer == nil else { return }
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.purgeExpired() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        expiryTimer = timer
     }
 
     /// Активности, которые пользователь убрал руками.
@@ -110,6 +127,7 @@ final class ActivityCenter: ObservableObject {
         // анимацию и перерисовку всего выреза — на ровном месте.
         guard !Self.looksSame(trimmed, activities) else {
             activities = trimmed
+            updateExpiryTimer()
             return
         }
 
@@ -118,5 +136,6 @@ final class ActivityCenter: ObservableObject {
         withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
             activities = trimmed
         }
+        updateExpiryTimer()
     }
 }
