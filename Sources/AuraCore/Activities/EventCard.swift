@@ -11,6 +11,8 @@ struct EventCard: View {
     var unread: Int = 1
     /// nil — отвечать некуда: баннер уже исчез.
     var onReply: (() -> Void)?
+    /// Вставить код подтверждения в то приложение, где сейчас курсор.
+    var onPasteCode: ((String) -> Void)?
 
     @EnvironmentObject private var settings: SettingsStore
 
@@ -33,6 +35,24 @@ struct EventCard: View {
             }
 
             Spacer(minLength: 6)
+
+            // Код подтверждения — самое частое, ради чего вообще смотрят
+            // на такое уведомление. macOS подставляет коды сама, но только
+            // в поля, которые сама и распознала: в терминале или в чужом
+            // приложении их набирают руками.
+            if let code = message.code, let onPasteCode {
+                Button { onPasteCode(code) } label: {
+                    Text(code)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.black.opacity(0.85))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(.white))
+                }
+                .buttonStyle(PressableButtonStyle())
+                .help(t("ui.2b6f40e1", "Вставить код"))
+            }
 
             if let onReply {
                 Button(action: onReply) {

@@ -74,6 +74,11 @@ final class SettingsStore: ObservableObject {
     @Published var enableNetwork: Bool { didSet { save(enableNetwork, "enableNetwork") } }
 
     @Published var reactToAudio: Bool { didSet { save(reactToAudio, "reactToAudio") } }
+    /// Ставить на паузу, когда отключили наушники.
+    ///
+    /// macOS делает это сама, но только для приложений, которые
+    /// позаботились: браузер обычно продолжает играть в динамики.
+    @Published var pauseOnHeadphonesRemoved: Bool { didSet { save(pauseOnHeadphonesRemoved, "pauseOnHeadphonesRemoved") } }
     /// Дополнять список исполнителей Spotify с публичной страницы трека.
     ///
     /// В AppleScript у Spotify одно поле `artist`, и для трека с несколькими
@@ -150,6 +155,10 @@ final class SettingsStore: ObservableObject {
     /// с чужим шрифтом, — самая частая причина лезть в «вставить как текст».
     @Published var pasteWithFormatting: Bool { didSet { save(pasteWithFormatting, "pasteWithFormatting") } }
     @Published var archiveEverything: Bool { didSet { save(archiveEverything, "archiveEverything") } }
+    /// Из этих приложений в историю ничего не попадает.
+    @Published var clipboardExcludedApps: [String] { didSet { save(clipboardExcludedApps, "clipboardExcludedApps") } }
+    /// Откуда уже копировали — чтобы было из чего выбирать в настройках.
+    @Published var clipboardKnownSources: [String] { didSet { save(clipboardKnownSources, "clipboardKnownSources") } }
 
     private let defaults: UserDefaults
 
@@ -210,6 +219,7 @@ final class SettingsStore: ObservableObject {
         dropShowsMenu = bool("dropShowsMenu", true)
 
         reactToAudio = bool("reactToAudio", true)
+        pauseOnHeadphonesRemoved = bool("pauseOnHeadphonesRemoved", true)
         enrichSpotifyArtists = bool("enrichSpotifyArtists", true)
 
         notificationStyle = defaults.string(forKey: "notificationStyle") ?? "card"
@@ -249,6 +259,8 @@ final class SettingsStore: ObservableObject {
         autoPaste = bool("autoPaste", true)
         pasteWithFormatting = bool("pasteWithFormatting", false)
         archiveEverything = bool("archiveEverything", true)
+        clipboardExcludedApps = defaults.stringArray(forKey: "clipboardExcludedApps") ?? []
+        clipboardKnownSources = defaults.stringArray(forKey: "clipboardKnownSources") ?? []
 
         // Наблюдатели свойств в инициализаторе не вызываются, а язык должен
         // примениться до первой отрисовки.
@@ -365,6 +377,7 @@ final class SettingsStore: ObservableObject {
             enableFocus = true
             enableCalendar = true
             reactToAudio = true
+        pauseOnHeadphonesRemoved = true
         enrichSpotifyArtists = true
             showLyrics = true
                 scrollSwitchesTrack = true
@@ -398,6 +411,12 @@ final class SettingsStore: ObservableObject {
         showLyrics = false
         barCount = 5
         backdropStrength = 0.78
+    }
+
+    /// Запомнить приложение, из которого копировали.
+    func rememberClipboardSource(_ app: String) {
+        guard !clipboardKnownSources.contains(app) else { return }
+        clipboardKnownSources = (clipboardKnownSources + [app]).suffix(30)
     }
 
     /// Как показывать уведомления от этого приложения.

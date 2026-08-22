@@ -28,6 +28,12 @@ final class ShowcaseWindowController {
         isVisible ? hide() : show()
     }
 
+    /// Живёт ли сейчас окно вместе со всем деревом видов внутри.
+    ///
+    /// Нужно тесту: скрытое окно продолжает работать целиком, и это стоило
+    /// приложению вдесятеро большего расхода в покое.
+    var hasWindow: Bool { window != nil }
+
     func show() {
         // Без экрана показывать витрину негде.
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }

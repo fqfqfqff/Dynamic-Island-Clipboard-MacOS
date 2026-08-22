@@ -428,6 +428,12 @@ struct SettingsView: View {
                 hint("В AppleScript у Spotify одно поле «исполнитель», и для трека с несколькими оно называет только первого. Остальных Aura берёт с публичной страницы трека — ключей для этого не нужно, но это сетевой запрос, один на трек.")
             }
 
+            group("Наушники") {
+                Toggle(t("ui.4e02b7c1", "Ставить на паузу, когда отключили наушники"),
+                       isOn: $settings.pauseOnHeadphonesRemoved)
+                hint("macOS делает это сама, но только для приложений, которые позаботились. Браузер обычно продолжает играть в динамики.")
+            }
+
             group("Звук") {
                 Toggle(t("ui.205bf115", "Полоски двигаются под реальный звук"), isOn: $settings.reactToAudio)
                 hint("Требует разрешения на запись звука. Ничего не записывается — считаются только уровни частот.")
@@ -456,7 +462,27 @@ struct SettingsView: View {
             }
 
             standard {
-                group("Вставка") {
+                group("Не запоминать") {
+                if settings.clipboardKnownSources.isEmpty {
+                    hint("Здесь появятся приложения, из которых вы копировали. Любое можно исключить — из него в историю не попадёт ничего.")
+                } else {
+                    ForEach(settings.clipboardKnownSources, id: \.self) { app in
+                        Toggle(app, isOn: Binding(
+                            get: { !settings.clipboardExcludedApps.contains(app) },
+                            set: { keep in
+                                if keep {
+                                    settings.clipboardExcludedApps.removeAll { $0 == app }
+                                } else if !settings.clipboardExcludedApps.contains(app) {
+                                    settings.clipboardExcludedApps.append(app)
+                                }
+                            }
+                        ))
+                    }
+                    hint("Метку «не сохранять» ставят не все менеджеры паролей и не всякий банк-клиент — этот список закрывает остальных.")
+                }
+            }
+
+            group("Вставка") {
                     Toggle(t("ui.ef37cbf6", "Вставлять сразу по клику"), isOn: $settings.autoPaste)
                     hint("Требует разрешения в «Конфиденциальность и безопасность → Универсальный доступ».")
                 }

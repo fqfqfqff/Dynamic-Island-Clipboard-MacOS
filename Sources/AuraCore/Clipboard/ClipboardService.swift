@@ -27,6 +27,13 @@ final class ClipboardService: ObservableObject {
     /// для истории. Первый из них ставят менеджеры паролей — без этой проверки
     /// история за день соберёт все скопированные пароли в открытом виде.
     /// Соглашение описано на nspasteboard.org.
+    /// Пришло содержимое с другого устройства.
+    var onRemoteContent: ((ClipboardItem) -> Void)?
+
+    /// Метка универсального буфера: содержимое скопировано на другом
+    /// устройстве и доехало по Handoff.
+    static let remoteMarker = NSPasteboard.PasteboardType("com.apple.is-remote-clipboard")
+
     private let ignoredTypes: [NSPasteboard.PasteboardType] = [
         .init("org.nspasteboard.ConcealedType"),
         .init("org.nspasteboard.TransientType"),
@@ -54,6 +61,8 @@ final class ClipboardService: ObservableObject {
     /// экрана: файл на диске полезен, но чаще его хотят просто вставить.
     func add(_ item: ClipboardItem) {
         if let first = items.first, first.hasSameContent(as: item) { return }
+
+        if item.fromOtherDevice { onRemoteContent?(item) }
 
         items.insert(item, at: 0)
         if items.count > settings.clipboardLimit {
@@ -117,6 +126,53 @@ final class ClipboardService: ObservableObject {
         }
     }
 
+    /// Выполнить действие, предложенное для элемента.
+    func perform(_ action: ClipboardItem.Action) {
+        switch action {
+        case .openLink(let url):
+            NSWorkspace.shared.open(url)
+
+        case .revealFiles(let urls):
+            NSWorkspace.shared.activateFileViewerSelecting(urls)
+
+        case .colorAsRGB(let color):
+            guard let rgb = color.usingColorSpace(.sRGB) else { return }
+            let text = String(
+                format: "rgb(%d, %d, %d)",
+                Int(round(rgb.redComponent * 255)),
+                Int(round(rgb.greenComponent * 255)),
+                Int(round(rgb.blueComponent * 255))
+            )
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            lastChangeCount = NSPasteboard.general.changeCount
+
+        case .formatJSON(let text):
+            guard let pretty = Self.prettyJSON(text) else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(pretty, forType: .string)
+            lastChangeCount = NSPasteboard.general.changeCount
+
+        case .pasteCode(let code):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(code, forType: .string)
+            lastChangeCount = NSPasteboard.general.changeCount
+            Paster.pasteIntoFrontmostApp()
+        }
+    }
+
+    /// Чистая функция, ничего от объекта ей не нужно.
+    nonisolated static func prettyJSON(_ text: String) -> String? {
+        guard let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data),
+              let pretty = try? JSONSerialization.data(
+                  withJSONObject: object,
+                  options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+              )
+        else { return nil }
+        return String(decoding: pretty, as: UTF8.self)
+    }
+
     func togglePin(_ item: ClipboardItem) {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[index].isPinned.toggle()
@@ -172,13 +228,25 @@ final class ClipboardService: ObservableObject {
         guard let types = pasteboard.types else { return }
         guard !types.contains(where: ignoredTypes.contains) else { return }
 
+        // Из некоторых приложений историю вести не нужно вовсе: метку
+        // `org.nspasteboard` ставят не все менеджеры паролей и не всякий
+        // банк-клиент.
+        let source = NSWorkspace.shared.frontmostApplication?.localizedName
+        if let source {
+            settings.rememberClipboardSource(source)
+            guard !settings.clipboardExcludedApps.contains(source) else { return }
+        }
+
         guard let kind = readKind(from: pasteboard) else { return }
 
         var item = ClipboardItem(
             kind: kind,
             date: Date(),
-            sourceName: NSWorkspace.shared.frontmostApplication?.localizedName
+            sourceName: source
         )
+        // Универсальный буфер помечает содержимое, приехавшее с другого
+        // устройства. Кроме этой метки узнать о нём неоткуда.
+        item.fromOtherDevice = types.contains(Self.remoteMarker)
         // Оформление забираем сразу: второй раз в системном буфере его уже
         // не будет — там окажется следующее скопированное.
         if case .text = kind {

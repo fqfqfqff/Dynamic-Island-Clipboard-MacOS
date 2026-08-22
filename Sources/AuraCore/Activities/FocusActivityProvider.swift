@@ -64,7 +64,7 @@ final class FocusActivityProvider {
             center.upsert(
                 Activity(
                     id: activityID,
-                    title: "Фокусирование выключено",
+                    title: t("ui.a70c53e2", "Фокусирование выключено"),
                     symbol: "moon.slash",
                     tint: .gray,
                     priority: .normal,
@@ -78,7 +78,7 @@ final class FocusActivityProvider {
             Activity(
                 id: activityID,
                 title: Self.humanName(for: mode),
-                subtitle: "Режим фокусирования",
+                subtitle: t("ui.d6137b6d", "Режим фокусирования"),
                 symbol: Self.symbol(for: mode),
                 tint: .purple,
                 priority: .normal,

@@ -160,3 +160,55 @@ extension ClipboardTests {
         XCTAssertEqual(ClipboardArchive.filter(entries, query: "совпадение", limit: 5).count, 5)
     }
 }
+
+extension ClipboardTests {
+    // MARK: - Код подтверждения
+
+    /// macOS подставляет коды сама, но только в поля, которые сама
+    /// и распознала. В терминале или в чужом приложении их набирают руками.
+    func testCodeIsFoundNextToAWordAboutIt() {
+        XCTAssertEqual(ClipboardItem.code(in: "Ваш код: 481596"), "481596")
+        XCTAssertEqual(ClipboardItem.code(in: "Your verification code is 8123"), "8123")
+        XCTAssertEqual(ClipboardItem.code(in: "Одноразовый пароль 12345"), "12345")
+    }
+
+    /// Иначе кодом станет любой год, цена и номер дома.
+    func testDigitsWithoutContextAreNotACode() {
+        XCTAssertNil(ClipboardItem.code(in: "Встречаемся в 1930 у дома 12"))
+        XCTAssertNil(ClipboardItem.code(in: "8123"))
+        XCTAssertNil(ClipboardItem.code(in: "код"), "цифр нет вовсе")
+        XCTAssertNil(ClipboardItem.code(in: "код 1"), "одна цифра — не код")
+    }
+
+    // MARK: - Умные действия
+
+    func testActionsDependOnWhatWasCopied() {
+        let link = ClipboardItem(
+            kind: .link(URL(string: "https://example.com")!), date: Date(), sourceName: nil
+        )
+        XCTAssertTrue(link.actions.contains { if case .openLink = $0 { true } else { false } })
+
+        let json = ClipboardItem(kind: .text("{\"a\":1}"), date: Date(), sourceName: nil)
+        XCTAssertTrue(json.actions.contains { if case .formatJSON = $0 { true } else { false } })
+
+        let plain = ClipboardItem(kind: .text("просто текст"), date: Date(), sourceName: nil)
+        XCTAssertTrue(plain.actions.isEmpty)
+    }
+
+    func testJSONIsRecognisedOnlyWhenItParses() {
+        XCTAssertTrue(ClipboardItem.looksLikeJSON("{\"a\": 1}"))
+        XCTAssertTrue(ClipboardItem.looksLikeJSON("[1, 2, 3]"))
+        XCTAssertFalse(ClipboardItem.looksLikeJSON("{это не json}"))
+        XCTAssertFalse(ClipboardItem.looksLikeJSON("обычный текст"))
+    }
+
+    func testJSONIsFormatted() throws {
+        let pretty = try XCTUnwrap(ClipboardService.prettyJSON("{\"b\":2,\"a\":1}"))
+        XCTAssertTrue(pretty.contains("\n"), "должен появиться перенос строк")
+        XCTAssertLessThan(
+            try XCTUnwrap(pretty.range(of: "\"a\"")).lowerBound,
+            try XCTUnwrap(pretty.range(of: "\"b\"")).lowerBound,
+            "ключи сортируются"
+        )
+    }
+}

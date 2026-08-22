@@ -39,6 +39,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private let idle = IdleWatcher()
     private let spectrum = AudioSpectrumMonitor()
     private let screenState = ScreenStateWatcher()
+    private let audioOutput = AudioOutputWatcher()
     private let updates = UpdateChecker()
     private var providerSubscriptions = Set<AnyCancellable>()
     private lazy var control = ControlServer { [weak self] command in
@@ -46,6 +47,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
+        // Считаем запуски, которые не дожили до конца: три подряд — и
+        // источники выключаются, чтобы приложение хотя бы открылось.
+        SafeMode.beginLaunch()
         setUpStatusItem()
 
         NotificationCenter.default.addObserver(
@@ -77,6 +81,31 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         notifications.onMessage = { [weak self] _ in
             guard let self, self.settings.notificationStyle == "card" else { return }
             self.notchController?.presentEvent(hold: self.settings.notificationHold)
+        }
+
+        // Выдернули наушники — музыка замолкает, а не переезжает в динамики.
+        audioOutput.onHeadphonesRemoved = { [weak self] in
+            guard let self, self.settings.pauseOnHeadphonesRemoved else { return }
+            guard self.media.nowPlaying?.isPlaying == true else { return }
+            self.media.send(.togglePlayPause)
+        }
+        audioOutput.start()
+
+        // Универсальный буфер: скопировали на телефоне — на Маке об этом
+        // не сообщает ничто, содержимое просто молча лежит и ждёт.
+        clipboard.onRemoteContent = { [weak self] item in
+            self?.activities.upsert(
+                Activity(
+                    id: "clipboard.remote",
+                    title: t("ui.d92a1c04", "с другого устройства"),
+                    subtitle: item.title,
+                    symbol: "iphone",
+                    tint: .blue,
+                    priority: .normal,
+                    indicator: .none,
+                    expiresAt: Date().addingTimeInterval(10)
+                )
+            )
         }
 
         clipboard.start()
@@ -125,6 +154,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         control.stop()
         spectrum.stop()
         screenState.stop()
+        audioOutput.stop()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -288,30 +318,43 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         let menu = NSMenu()
         menu.delegate = self
 
-        add(to: menu, title: "История буфера", key: "⌥⌘V", action: #selector(showClipboard))
-        add(to: menu, title: "Витрина плеера", key: "⌥⌘M", action: #selector(toggleShowcase))
-        add(to: menu, title: "Настройки…", key: "", action: #selector(showSettings))
-        add(to: menu, title: "Разрешения и настройка", key: "", action: #selector(showOnboarding))
+        add(to: menu, title: t("ui.c40d9e17", "История буфера"), key: "⌥⌘V", action: #selector(showClipboard))
+        add(to: menu, title: t("ui.b21f7530", "Витрина плеера"), key: "⌥⌘M", action: #selector(toggleShowcase))
+        add(to: menu, title: t("ui.e6b21f04", "Настройки…"), key: "", action: #selector(showSettings))
+        add(to: menu, title: t("ui.9d3c04b8", "Разрешения и настройка"), key: "", action: #selector(showOnboarding))
         menu.addItem(.separator())
+
+        // Пункт появляется только в аварийном режиме — иначе он лишний,
+        // а в нём это единственный способ вернуть источники, не открывая
+        // терминал.
+        if SafeMode.isActive {
+            add(
+                to: menu,
+                title: t("ui.6a30fe17", "Аварийный режим: включить источники"),
+                key: "",
+                action: #selector(leaveSafeMode)
+            )
+            menu.addItem(.separator())
+        }
 
         add(
             to: menu,
-            title: "Показывать вырез",
+            title: t("ui.71e5a2c0", "Показывать вырез"),
             key: "",
             action: #selector(toggleNotchVisible),
             checked: settings.showNotch
         )
         add(
             to: menu,
-            title: "Приостановить Aura",
+            title: t("ui.30b94f16", "Приостановить Aura"),
             key: "",
             action: #selector(togglePaused),
             checked: settings.paused
         )
         menu.addItem(.separator())
 
-        add(to: menu, title: "Запросить доступ к плееру", key: "", action: #selector(requestMusicAccess))
-        add(to: menu, title: "Очистить историю буфера", key: "", action: #selector(clearClipboard))
+        add(to: menu, title: t("ui.4a8e01d5", "Запросить доступ к плееру"), key: "", action: #selector(requestMusicAccess))
+        add(to: menu, title: t("ui.e520c81a", "Очистить историю буфера"), key: "", action: #selector(clearClipboard))
         menu.addItem(.separator())
         if let release = updates.available {
             add(
@@ -322,7 +365,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             )
             menu.addItem(.separator())
         }
-        add(to: menu, title: "Выйти из Aura", key: "", action: #selector(quit))
+        add(to: menu, title: t("ui.2a2a0c98", "Выйти из Aura"), key: "", action: #selector(quit))
 
         statusItem.menu = menu
         button.performClick(nil)
@@ -378,6 +421,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func toggleNotchVisible() {
         settings.showNotch.toggle()
         notchController?.setVisible(settings.showNotch && !settings.paused)
+    }
+
+    @objc private func leaveSafeMode() {
+        SafeMode.reset()
+        applyProviderSettings()
     }
 
     @objc private func togglePaused() {
@@ -527,6 +575,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
     /// Источники включаются и выключаются на лету, без перезапуска.
     private func applyProviderSettings() {
+        // Аварийный режим: приложение падало при запуске три раза подряд.
+        // Источники — единственное, что лезет в систему, поэтому они
+        // и выключаются; окно настроек и меню остаются доступны.
+        guard !SafeMode.isActive else {
+            media.stop()
+            screenshots.stop()
+            battery.stop()
+            notifications.stop()
+            focus.stop()
+            calendar.stop()
+            network.stop()
+            downloads.stop()
+            NSLog("Aura: аварийный режим — источники выключены после %d падений",
+                  SafeMode.failedLaunches)
+            return
+        }
+
         settings.enableMusic ? media.start() : media.stop()
         settings.enableScreenshots ? screenshots.start() : screenshots.stop()
         if settings.enableBattery { battery.start() } else { battery.stop() }

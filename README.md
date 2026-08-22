@@ -199,7 +199,8 @@ to another machine.
 ./Scripts/install.sh    # rebuild and update the installed copy
 ./Scripts/shots.sh      # render the interface to PNG — no screen recording needed
 ./Scripts/make-icon.sh  # redraw the app icon
-swift test              # 107 tests
+swift test              # 126 tests
+./Scripts/bench.sh      # idle cost: CPU and memory
 Scripts/aura status     # diagnostics
 ```
 

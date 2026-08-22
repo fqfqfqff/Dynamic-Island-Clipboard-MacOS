@@ -200,7 +200,8 @@ Scripts/aura status
 ./Scripts/install.sh    # пересобрать и обновить установленную копию
 ./Scripts/shots.sh      # снимки интерфейса в PNG — без записи экрана
 ./Scripts/make-icon.sh  # перерисовать обложку приложения
-swift test              # 107 тестов
+swift test              # 126 тестов
+./Scripts/bench.sh      # расход в покое: процессор и память
 Scripts/aura status     # диагностика
 ```
 

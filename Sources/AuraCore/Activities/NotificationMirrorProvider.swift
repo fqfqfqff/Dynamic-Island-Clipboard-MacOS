@@ -71,6 +71,8 @@ final class NotificationMirrorProvider: ObservableObject {
         var sender: String
         var body: String?
         var kind: Kind
+        /// Код подтверждения из текста, если он там есть.
+        var code: String?
         var icon: NSImage?
         var tint: Color
         var receivedAt: Date
@@ -332,6 +334,7 @@ final class NotificationMirrorProvider: ObservableObject {
             sender: content.sender,
             body: settings.notificationShowBody ? content.body : nil,
             kind: kind,
+            code: content.body.flatMap(ClipboardItem.code(in:)),
             icon: icon,
             tint: tint,
             receivedAt: Date()

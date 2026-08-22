@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct NotchRootView: View {
@@ -364,7 +365,14 @@ struct NotchRootView: View {
                 EventCard(
                     message: message,
                     unread: notifications.unread[message.app] ?? 1,
-                    onReply: notifications.canReply ? { notifications.reply() } : nil
+                    onReply: notifications.canReply ? { notifications.reply() } : nil,
+                    onPasteCode: { code in
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(code, forType: .string)
+                        Paster.pasteIntoFrontmostApp()
+                        notifications.markRead(app: message.app)
+                        viewModel.dismissEvent()
+                    }
                 )
                     .frame(height: viewModel.eventSize.height - viewModel.geometry.menuBarHeight - 12)
                     .padding(.top, viewModel.geometry.menuBarHeight + 6)

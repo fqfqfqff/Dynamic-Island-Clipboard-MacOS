@@ -491,7 +491,7 @@ final class NowPlayingProvider: ObservableObject {
     private func present(source: AudioProcessMonitor.Source) {
         if source.isAirPlay {
             publish(NowPlaying(
-                title: "Звук с устройства",
+                title: t("ui.5e1b8a30", "Звук с устройства"),
                 subtitle: "AirPlay",
                 appName: "AirPlay",
                 artwork: nil,

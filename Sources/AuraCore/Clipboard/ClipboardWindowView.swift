@@ -156,7 +156,7 @@ struct ClipboardWindowView: View {
             ScrollView {
                 LazyVStack(spacing: 2) {
                     ForEach(items) { item in
-                        ClipboardRow(item: item, isSelected: selection == item.id)
+                        ClipboardRow(item: item, isSelected: selection == item.id) { clipboard.perform($0) }
                             .id(item.id)
                             .contentShape(Rectangle())
                             // Выделение ведётся только клавишами: раньше оно
@@ -231,7 +231,7 @@ struct ClipboardWindowView: View {
                 Image(systemName: "gearshape")
             }
             .buttonStyle(.plain)
-            .help("Настройки Aura")
+            .help(t("ui.1b74d3f9", "Настройки Aura"))
 
             Button {
                 AppActions.quit()
@@ -239,7 +239,7 @@ struct ClipboardWindowView: View {
                 Image(systemName: "power")
             }
             .buttonStyle(.plain)
-            .help("Выйти из Aura")
+            .help(t("ui.2a2a0c98", "Выйти из Aura"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -344,6 +344,7 @@ struct ClipboardWindowView: View {
 struct ClipboardRow: View {
     let item: ClipboardItem
     let isSelected: Bool
+    var onAction: (ClipboardItem.Action) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -362,7 +363,14 @@ struct ClipboardRow: View {
                         .lineLimit(2)
                 }
                 HStack(spacing: 6) {
-                    if let source = item.sourceName {
+                    if item.fromOtherDevice {
+                        // Универсальный буфер: содержимое приехало с телефона
+                        // или планшета, и знать об этом полезно — оно там
+                        // и останется, если не вставить.
+                        Label(t("ui.d92a1c04", "с другого устройства"), systemImage: "iphone")
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(.tint)
+                    } else if let source = item.sourceName {
                         Text(source)
                     }
                     Text(Self.formatter.string(from: item.date))
@@ -378,6 +386,11 @@ struct ClipboardRow: View {
         .background {
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.accentColor.opacity(0.18) : .clear)
+        }
+        .contextMenu {
+            ForEach(item.actions) { action in
+                Button(action.title, systemImage: action.symbol) { onAction(action) }
+            }
         }
     }
 

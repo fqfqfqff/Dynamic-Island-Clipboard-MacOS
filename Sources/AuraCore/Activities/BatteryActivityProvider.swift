@@ -91,7 +91,7 @@ final class BatteryActivityProvider {
                 Activity(
                     id: lowActivityID,
                     title: "Заряд \(snapshot.percent)%",
-                    subtitle: "Пора к розетке",
+                    subtitle: t("ui.6f21a904", "Пора к розетке"),
                     symbol: "battery.25",
                     tint: .red,
                     priority: .critical,

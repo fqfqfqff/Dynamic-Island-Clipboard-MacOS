@@ -60,7 +60,7 @@ struct OnboardingView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Готово", action: onFinish)
+            Button(t("ui.8c05e214", "Готово"), action: onFinish)
                 .keyboardShortcut(.defaultAction)
         }
         .padding(16)
@@ -82,7 +82,7 @@ struct OnboardingView: View {
 
         return [
             Item(
-                title: "Универсальный доступ",
+                title: t("ui.0e93b7a1", "Универсальный доступ"),
                 purpose: "Вставка из буфера по ⌥⌘V и зеркало уведомлений.",
                 symbol: "hand.raised.fill",
                 state: PermissionStatus.accessibility,
@@ -93,7 +93,7 @@ struct OnboardingView: View {
                 optional: false
             ),
             Item(
-                title: "Управление плеерами",
+                title: t("ui.f18a6c30", "Управление плеерами"),
                 purpose: "Трек, обложка и перемотка в Музыке и Spotify. Без этого остаётся только название приложения.",
                 symbol: "music.note",
                 state: PermissionStatus.automation(settings: settings, media: media),
@@ -105,7 +105,7 @@ struct OnboardingView: View {
                 optional: false
             ),
             Item(
-                title: "Запись звука",
+                title: t("ui.2d6b90e4", "Запись звука"),
                 purpose: "Полоски эквалайзера двигаются по реальным частотам. Ничего не записывается — считаются только уровни.",
                 symbol: "waveform",
                 state: PermissionStatus.audio(spectrum: spectrum, settings: settings),
@@ -116,7 +116,7 @@ struct OnboardingView: View {
                 optional: true
             ),
             Item(
-                title: "Полный доступ к диску",
+                title: t("ui.a3f10852", "Полный доступ к диску"),
                 purpose: "Только ради режима фокусирования: состояние «Не беспокоить» лежит в защищённом файле.",
                 symbol: "moon.fill",
                 state: PermissionStatus.fullDisk,
@@ -124,7 +124,7 @@ struct OnboardingView: View {
                 optional: true
             ),
             Item(
-                title: "Заставка",
+                title: t("ui.57c2e940", "Заставка"),
                 purpose: "Плеер на заблокированном экране. Установлена скриптом — осталось выбрать её в настройках системы.",
                 symbol: "lock.display",
                 state: PermissionStatus.screensaverInstalled ? .granted : .unknown,
@@ -171,7 +171,7 @@ struct OnboardingView: View {
     private func status(_ item: Item) -> some View {
         switch item.state {
         case .granted:
-            Label("выдано", systemImage: "checkmark.circle.fill")
+            Label(t("ui.90ab41c7", "выдано"), systemImage: "checkmark.circle.fill")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.green)
                 .labelStyle(.titleAndIcon)
