@@ -79,7 +79,10 @@ struct EventCard: View {
     private var secondLine: String {
         let body = message.body ?? message.kind.wording
         guard unread > 1 else { return body }
-        return body + " · " + t("ui.7a3d1b60", "и ещё") + " \(unread - 1)"
+        // Число внутри строки, а не приклеено снаружи: по-русски «и ещё 2»,
+        // по-английски «2 more» — порядок слов разный, склейкой его не взять.
+        let more = String(format: t("ui.7a3d1b60", "и ещё %d"), unread - 1)
+        return body + " · " + more
     }
 
     /// Иконка самого приложения: по ней сразу видно, куда идти отвечать.

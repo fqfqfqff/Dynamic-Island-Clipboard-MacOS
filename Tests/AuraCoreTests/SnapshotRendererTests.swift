@@ -36,6 +36,33 @@ final class SnapshotRendererTests: XCTestCase {
         )
     }
 
+    /// Витрина занимает весь экран, и всё, что прижато к его краям, уезжало
+    /// за него: слой размытой обложки с `.aspectRatio(.fill)` возвращал
+    /// размер больше предложенного, и корневой стек вырастал из 1280×800
+    /// в квадрат 1280×1280. Часы оказывались на 240 точек выше видимой
+    /// области, подсказка — на столько же ниже. Выглядело это не как
+    /// смещение, а как «часов просто нет».
+    func testShowcaseKeepsClockAndHintOnScreen() throws {
+        let scene = SnapshotScenes.showcaseCentered()
+        let bitmap = try render(scene)
+        let scale = CGFloat(bitmap.pixelsWide) / scene.size.width
+
+        let clock = CGRect(x: 20, y: 15, width: 220, height: 95)
+        XCTAssertGreaterThan(
+            brightest(bitmap, in: clock, scale: scale), 0.35,
+            "часов не видно — корневой стек вырос за пределы экрана"
+        )
+
+        let hint = CGRect(
+            x: scene.size.width / 2 - 260, y: scene.size.height - 56,
+            width: 520, height: 42
+        )
+        XCTAssertGreaterThan(
+            brightest(bitmap, in: hint, scale: scale), 0.12,
+            "подсказки не видно — нижний край уехал за экран"
+        )
+    }
+
     func testEverySceneRenders() throws {
         for scene in SnapshotScenes.all() {
             let bitmap = try render(scene)
@@ -54,6 +81,19 @@ final class SnapshotRendererTests: XCTestCase {
             throw XCTSkip("отрисовка в этом окружении недоступна")
         }
         return bitmap
+    }
+
+    /// Самая светлая точка в прямоугольнике, заданном в точках вида.
+    private func brightest(
+        _ bitmap: NSBitmapImageRep, in rect: CGRect, scale: CGFloat
+    ) -> CGFloat {
+        var best: CGFloat = 0
+        for x in stride(from: Int(rect.minX * scale), to: Int(rect.maxX * scale), by: 2) {
+            for y in stride(from: Int(rect.minY * scale), to: Int(rect.maxY * scale), by: 2) {
+                best = max(best, brightness(bitmap, x: x, y: y))
+            }
+        }
+        return best
     }
 
     private func brightness(_ bitmap: NSBitmapImageRep, x: Int, y: Int) -> CGFloat {

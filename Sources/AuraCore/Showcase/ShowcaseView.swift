@@ -70,10 +70,31 @@ struct ShowcaseView: View {
 
     // MARK: - Фон
 
-    @ViewBuilder
+    /// Фон.
+    ///
+    /// Обложка лежит поверх подложки, а не слоем стека, и подложка обрезает
+    /// её по себе. Причина: `.aspectRatio(.fill)` отдаёт размер больше
+    /// предложенного — квадратная обложка на экране 1280×800 возвращала
+    /// 1280×1280. Стек витрины вырастал до этого квадрата, и всё, что
+    /// прижато к краям, уезжало за экран: часы на 240 точек вверх,
+    /// подсказка на столько же вниз. Ни того, ни другого не было видно
+    /// вообще — а выглядело это как «просто не нарисовалось».
     private var background: some View {
-        ZStack {
-            Color.black
+        Color.black
+            .overlay { backgroundTint }
+            .overlay {
+                LinearGradient(
+                    colors: [.black.opacity(0.35), .black.opacity(0.8)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .clipped()
+    }
+
+    @ViewBuilder
+    private var backgroundTint: some View {
+        Group {
             if settings.backgroundStyle == "gradient" {
                 AuraTheme.gradient(settings.gradientPreset)
             } else if settings.backgroundStyle == "artwork",
@@ -92,12 +113,8 @@ struct ShowcaseView: View {
                     .opacity(0.38)
                     .animation(.smooth(duration: 0.8), value: artwork)
             }
-            LinearGradient(
-                colors: [.black.opacity(0.35), .black.opacity(0.8)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
         }
+        .clipped()
     }
 
     // MARK: - Композиция
