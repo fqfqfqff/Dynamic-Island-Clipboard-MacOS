@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>0.2.0</b> · macOS 14.4+ · Apple silicon and Intel ·
+  <b>0.3.0</b> · macOS 14.4+ · Apple silicon and Intel ·
   <a href="README.ru.md">Русская версия</a>
 </p>
 
@@ -63,7 +63,22 @@ clearing and a full log of everything ever copied. Links, images, files and
 colours are recognised and previewed. There is an eyedropper for picking a
 colour off the screen, and a checkbox for pasting with or without formatting.
 Passwords from password managers never enter the history — the
-`org.nspasteboard.*` markers are respected.
+`org.nspasteboard.*` markers are respected, and you can exclude a bank or a
+password manager of your own.
+
+Every entry knows what it is and offers an action: open a link, pretty-print
+JSON, look up an address on a map. Anything copied on an iPhone is marked as
+such. A verification code from a text message shows up right in the
+notification, as a button — no need to open the conversation.
+
+**Screenshots land on the clipboard.** A screenshot is saved to disk as usual
+and put on the clipboard at the same time: ⌘V pastes the picture, mail attaches
+the file. No need to remember ⌃⌘⇧4 in advance — you decide whether you wanted a
+file or a paste *after* taking the shot.
+
+**Headphones.** Pull them out and the music pauses. macOS does this itself,
+but only for apps that bothered to handle it: Spotify does, a browser usually
+does not.
 
 **A shelf.** Drop files onto the notch and choose: keep them on the shelf, send
 them by AirDrop, or compress them. Drag them back out later into a mail message
@@ -138,6 +153,10 @@ Scripts/aura status
 That prints what is running and, more usefully, *why* something is not: whether
 the panel is visible, which audio sources are seen, whether the level probe is
 allowed, whether Accessibility is granted, what the last player poll failed on.
+It also reports memory use and how long the process has been up.
+
+If the app crashes on launch three times in a row it comes up with its sources
+switched off, and a menu item brings them back — no terminal required.
 
 ### Why there is no prebuilt binary
 
@@ -199,7 +218,7 @@ to another machine.
 ./Scripts/install.sh    # rebuild and update the installed copy
 ./Scripts/shots.sh      # render the interface to PNG — no screen recording needed
 ./Scripts/make-icon.sh  # redraw the app icon
-swift test              # 126 tests
+swift test              # 132 tests
 ./Scripts/bench.sh      # idle cost: CPU and memory
 Scripts/aura status     # diagnostics
 ```
