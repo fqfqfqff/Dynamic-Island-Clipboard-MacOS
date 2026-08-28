@@ -102,6 +102,12 @@ final class NotificationMirrorProvider: ObservableObject {
     /// в одном разговоре повторяется, и через минуту это уже новое событие,
     /// а не тот же баннер, прочитанный второй раз.
     private var seen: [String: Date] = [:]
+    /// Значки, снятые с самих баннеров: для приложений, которых на Маке нет.
+    private let bannerIcons = BannerIconReader()
+    /// Разрешена ли запись экрана — без неё значки с телефона не снять.
+    var canReadIconsFromScreen: Bool { bannerIcons.isAllowed }
+    /// Последний снятый значок пришёл с экрана, а не из системы.
+    private(set) var lastIconFromScreen = false
     /// Последние разобранные баннеры — для диагностики.
     ///
     /// Уведомления с телефона приходят не в том же виде, что от приложений
@@ -446,6 +452,24 @@ final class NotificationMirrorProvider: ObservableObject {
         }
     }
 
+    /// Значок доехал позже самого уведомления — подставляем его и в карточку,
+    /// и в строки списка: карточка живёт несколько секунд, а значок в списке
+    /// остаётся до прочтения.
+    private func apply(icon: NSImage, app: String) {
+        lastIconFromScreen = true
+
+        if var message = latest, message.app == app {
+            message.icon = icon
+            if settings.notificationTintFromIcon { message.tint = icon.accentColor }
+            latest = message
+        }
+
+        for (thread, count) in threads where Self.app(ofThread: thread) == app {
+            center.updateArtwork(id: Self.activityID(forThread: thread), artwork: icon)
+            _ = count
+        }
+    }
+
     private func remember(_ texts: [String]) {
         guard !texts.isEmpty, recentBanners.last != texts else { return }
         recentBanners.append(texts)
@@ -538,7 +562,14 @@ final class NotificationMirrorProvider: ObservableObject {
         // Имя приложения в баннере бывает пустым — уведомления с телефона
         // приходят не в том же виде, что от приложений на Маке. Тогда буква
         // берётся от отправителя: он есть всегда, и это лучше пустого места.
-        let icon = Self.icon(named: content.app) ?? Self.monogram(for: content.sender)
+        var icon = Self.icon(named: content.app) ?? Self.monogram(for: content.sender)
+
+        // Иконки нет ни среди запущенных, ни среди установленных — значит,
+        // приложение живёт на телефоне. Там, где её взять неоткуда, берём
+        // с самого баннера: система рисует её сама.
+        let ownIcon = bannerIcons.cached(for: content.app)
+        if let ownIcon { icon = ownIcon }
+        lastIconFromScreen = ownIcon != nil
         let kind = Self.kind(from: content.body)
         let tint = settings.notificationTintFromIcon
             ? (icon?.accentColor ?? .indigo)
@@ -558,6 +589,23 @@ final class NotificationMirrorProvider: ObservableObject {
         )
 
         latest = message
+
+        // Своей иконки не нашлось — приложение живёт на телефоне. Снимаем
+        // её с баннера, пока он ещё на экране, и подставляем, когда придёт.
+        // Скрытый ключ для проверки самой съёмки на приложении, у которого
+        // иконка и так есть: `defaults write dev.kekch.aura forceBannerIcon -bool true`.
+        // Без него путь включается только там, где иконки действительно нет.
+        let forced = UserDefaults.standard.bool(forKey: "forceBannerIcon")
+        if Self.isMonogram(icon) || forced, settings.readIconsFromBanner {
+            let frame = latestBanner.flatMap { Self.iconFrame(in: $0) }
+            AppDelegate.log("значок с баннера: кадр \(frame.map(String.init(describing:)) ?? "не найден")")
+
+            if let frame {
+                bannerIcons.read(app: content.app, iconFrame: frame) { [weak self] image in
+                    self?.apply(icon: image, app: content.app)
+                }
+            }
+        }
 
         // Уведомление от приложения, которое сейчас впереди, человек уже
         // прочитал — он в него и смотрит. Значок в таком случае не нужен:
@@ -688,6 +736,85 @@ final class NotificationMirrorProvider: ObservableObject {
     }
 
     /// Собирает все текстовые узлы окна баннера.
+    /// Где в баннере нарисован значок приложения.
+    ///
+    /// Элемента-картинки в баннере нет вовсе: Универсальный доступ отдаёт
+    /// только группу баннера и три строки текста. Зато по ним место значка
+    /// вычисляется однозначно — он занимает всё поле слева от текста:
+    ///
+    ///     AXGroup     [1350,55 344×73]   ← баннер
+    ///       AXStaticText [1408,67 …]     ← от кого
+    ///       AXStaticText [1408,83 …]     ← чат
+    ///       AXStaticText [1408,99 …]     ← сообщение
+    ///
+    /// Отступ до текста — 58 точек, значок внутри него квадратный и по центру
+    /// по вертикали. Считаем от настоящих координат, а не от зашитых чисел:
+    /// вёрстка баннера меняется от версии к версии.
+    static func iconFrame(in window: AXUIElement) -> CGRect? {
+        guard let banner = bannerGroup(in: window) else { return nil }
+        let gap = banner.textLeft - banner.frame.minX
+        guard gap > 24, gap < banner.frame.width / 2 else { return nil }
+
+        // Поле слева от текста — это отступ, значок и ещё отступ. Значок
+        // занимает примерно две трети поля.
+        let side = min(gap * 0.66, banner.frame.height * 0.62)
+        return CGRect(
+            x: banner.frame.minX + (gap - side) / 2,
+            y: banner.frame.midY - side / 2,
+            width: side,
+            height: side
+        )
+    }
+
+    /// Группа баннера и левый край её текста.
+    private static func bannerGroup(
+        in element: AXUIElement, depth: Int = 0
+    ) -> (frame: CGRect, textLeft: CGFloat)? {
+        guard depth < 8 else { return nil }
+
+        var children: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element, kAXChildrenAttribute as CFString, &children
+        ) == .success, let list = children as? [AXUIElement] else { return nil }
+
+        // Сначала вглубь: нужна самая узкая группа, в которой лежат тексты,
+        // а не окно целиком.
+        for child in list {
+            if let found = bannerGroup(in: child, depth: depth + 1) { return found }
+        }
+
+        let texts = list.compactMap { child -> CGRect? in
+            var role: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(
+                child, kAXRoleAttribute as CFString, &role
+            ) == .success, (role as? String) == kAXStaticTextRole else { return nil }
+            return frame(of: child)
+        }
+
+        guard texts.count >= 2, let own = frame(of: element), own.width > 60 else { return nil }
+        guard let textLeft = texts.map(\.minX).min() else { return nil }
+        return (own, textLeft)
+    }
+
+    private static func frame(of element: AXUIElement) -> CGRect? {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element, kAXPositionAttribute as CFString, &positionValue
+        ) == .success,
+        AXUIElementCopyAttributeValue(
+            element, kAXSizeAttribute as CFString, &sizeValue
+        ) == .success else { return nil }
+
+        var origin = CGPoint.zero
+        var size = CGSize.zero
+        guard let positionValue, let sizeValue,
+              AXValueGetValue(positionValue as! AXValue, .cgPoint, &origin),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
+
+        return CGRect(origin: origin, size: size)
+    }
+
     private static func texts(in element: AXUIElement, depth: Int = 0) -> [String] {
         guard depth < 8 else { return [] }
         var result: [String] = []
@@ -853,6 +980,40 @@ final class NotificationMirrorProvider: ObservableObject {
             }
         }
         return result
+    }
+
+    /// Проверка поиска иконок: для каждого установленного приложения берётся
+    /// имя на языке системы — то самое, которым его назовёт баннер, — и
+    /// проверяется, находится ли по нему настоящая иконка.
+    ///
+    /// Без такой проверки поломка не видна: в диагностике одного уведомления
+    /// «значок найден» стоит и тогда, когда найдена нарисованная буква.
+    static func iconAudit() -> [(name: String, found: Bool, monogram: Bool)] {
+        if installed == nil { installed = scanApplications() }
+        let language = Locale.preferredLanguages.first?.components(separatedBy: "-").first ?? "en"
+
+        var seen = Set<String>()
+        var result: [(String, Bool, Bool)] = []
+
+        for url in Set((installed ?? [:]).values).sorted(by: { $0.path < $1.path }) {
+            let name = systemLanguageName(of: url, language: language)
+                ?? url.deletingPathExtension().lastPathComponent
+            guard seen.insert(name).inserted else { continue }
+
+            let icon = self.icon(named: name)
+            result.append((name, icon != nil, isMonogram(icon)))
+        }
+        return result
+    }
+
+    /// Имя приложения на языке системы — то, которым его назовёт баннер.
+    private static func systemLanguageName(of url: URL, language: String) -> String? {
+        let loctable = url.appendingPathComponent("Contents/Resources/InfoPlist.loctable")
+        guard let table = NSDictionary(contentsOf: loctable) as? [String: [String: Any]],
+              let entry = table[language]
+        else { return nil }
+
+        return (entry["CFBundleDisplayName"] ?? entry["CFBundleName"]) as? String
     }
 
     /// Все имена, под которыми приложение известно на разных языках.

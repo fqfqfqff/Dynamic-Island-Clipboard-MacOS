@@ -20,6 +20,8 @@
     <string>3</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Чтобы показать значок приложения у уведомления с айфона: такого приложения на Маке нет, и взять его иконку больше неоткуда — она есть только в самом баннере.</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>

@@ -116,6 +116,14 @@ struct OnboardingView: View {
                 optional: true
             ),
             Item(
+                title: t("ui.7c40b2e9", "Запись экрана"),
+                purpose: "Только ради значков у уведомлений с айфона: такого приложения на Маке нет, и его иконка есть лишь в самом баннере. Ничего не записывается — снимается квадрат 38×38 точек.",
+                symbol: "app.badge",
+                state: PermissionStatus.screenRecording,
+                action: { PermissionStatus.open(.screenRecording) },
+                optional: true
+            ),
+            Item(
                 title: t("ui.a3f10852", "Полный доступ к диску"),
                 purpose: "Только ради режима фокусирования: состояние «Не беспокоить» лежит в защищённом файле.",
                 symbol: "moon.fill",

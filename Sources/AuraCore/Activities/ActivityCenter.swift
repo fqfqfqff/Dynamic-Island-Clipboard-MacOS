@@ -71,6 +71,16 @@ final class ActivityCenter: ObservableObject {
         apply(list)
     }
 
+    /// Подменить картинку у уже показанной активности.
+    ///
+    /// Значок уведомления с телефона приезжает позже самого уведомления:
+    /// его сначала нужно снять с баннера. Пересобирать активность целиком
+    /// нельзя — она уедет в конец очереди и мигнёт.
+    func updateArtwork(id: String, artwork: NSImage) {
+        guard let index = activities.firstIndex(where: { $0.id == id }) else { return }
+        activities[index].artwork = artwork
+    }
+
     func remove(id: String) {
         remove(id: id, forgetDismissal: true)
     }

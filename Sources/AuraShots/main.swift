@@ -20,6 +20,20 @@ MainActor.assumeIsolated {
     print("экран: \(env.0)  вырез: \(env.1)  строкаМеню: \(env.2)  contentSize: \(env.3)")
 }
 
+// Отдельный режим: проверить поиск иконок приложений.
+if arguments.count > 1, arguments[1] == "icons" {
+    MainActor.assumeIsolated {
+        let report = IconAudit.run()
+        let broken = report.filter { !$0.found || $0.monogram }
+
+        for item in broken {
+            print("нет иконки: \(item.name)")
+        }
+        print("приложений: \(report.count), без своей иконки: \(broken.count)")
+    }
+    exit(0)
+}
+
 // Отдельный режим: нарисовать обложку приложения.
 if arguments.count > 1, arguments[1] == "icon" {
     let target = arguments.count > 2

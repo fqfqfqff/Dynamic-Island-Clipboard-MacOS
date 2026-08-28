@@ -48,6 +48,7 @@
 "ui.57c2e940" = "Screen saver";
 "ui.5a0e73c1" = "Pause";
 "ui.5a632c81" = "Clear";
+"ui.5b1c9e40" = "Audio";
 "ui.5c8b21a0" = "Copy as RGB";
 "ui.5d81c204" = "Pick a colour from the screen";
 "ui.5e1b8a30" = "Audio from a device";
@@ -72,6 +73,7 @@
 "ui.77fb4be7" = "Artwork and lyrics side by side";
 "ui.7a3d1b60" = "%d more";
 "ui.7b8d5ba8" = "Music and any audio";
+"ui.7c40b2e9" = "Screen Recording";
 "ui.7d4e9a02" = "Personal Hotspot";
 "ui.7e3a91d4" = "Format JSON";
 "ui.7e3c05af" = "Normal";
@@ -99,9 +101,11 @@
 "ui.9e0b3f71" = "Put on the shelf";
 "ui.9e3e457e" = "Show in Finder";
 "ui.9f21ab6d" = "Internet from your phone";
+"ui.9f2a71d3" = "Listen to audio";
 "ui.a05e2d13" = "Load from a file";
 "ui.a0d610b7" = "Artwork";
 "ui.a1c30f4b" = "No network";
+"ui.a1c73f52" = "App icons";
 "ui.a27f07b8" = "Show lyrics";
 "ui.a3f10852" = "Full disk access";
 "ui.a444b797" = "Goes out by itself after";
@@ -118,6 +122,7 @@
 "ui.b3d61e84" = "Voice message";
 "ui.b6f2704c" = "Restart Aura";
 "ui.b7f30c25" = "Hide the island";
+"ui.b8206c31" = "Allow Screen Recording";
 "ui.ba4f7301" = "Show badge even when the app is open";
 "ui.bb14d99c" = "Progress ring";
 "ui.bcf8b81c" = "Larger than usual";
@@ -135,6 +140,7 @@
 "ui.d05f2a91" = "Wi-Fi and Personal Hotspot";
 "ui.d1a0f36e" = "Share";
 "ui.d4a10b96" = "Minimal";
+"ui.d4e91b07" = "Grab the icon from the banner";
 "ui.d6137b6d" = "Focus mode";
 "ui.d7068ba5" = "Screenshots";
 "ui.d92a1c04" = "from another device";

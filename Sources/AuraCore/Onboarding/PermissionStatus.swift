@@ -34,6 +34,13 @@ enum PermissionStatus {
         return spectrum.isRunning ? .granted : .unknown
     }
 
+    /// Запись экрана. Нужна ровно для одного: снять значок приложения
+    /// с баннера уведомления, пришедшего с айфона. Такого приложения
+    /// на Маке нет, и взять его иконку больше неоткуда.
+    static var screenRecording: State {
+        CGPreflightScreenCaptureAccess() ? .granted : .denied
+    }
+
     static var fullDisk: State {
         let url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json")
@@ -58,6 +65,7 @@ enum PermissionStatus {
         case automation
         case audio
         case fullDisk
+        case screenRecording
         case screensaver
 
         var link: String {
@@ -67,6 +75,7 @@ enum PermissionStatus {
             case .automation: return prefix + "Privacy_Automation"
             case .audio: return prefix + "Privacy_Microphone"
             case .fullDisk: return prefix + "Privacy_AllFiles"
+            case .screenRecording: return prefix + "Privacy_ScreenCapture"
             case .screensaver: return "x-apple.systempreferences:com.apple.ScreenSaver-Settings.extension"
             }
         }

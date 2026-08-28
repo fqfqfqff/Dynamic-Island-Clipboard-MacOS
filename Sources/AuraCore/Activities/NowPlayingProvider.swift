@@ -347,6 +347,14 @@ final class NowPlayingProvider: ObservableObject {
         // AirPlay слушать нечем: звук идёт мимо процесса-посредника.
         if candidate.isAirPlay { return candidate }
 
+        // Пока тап открыт, macOS держит в строке меню свой значок записи.
+        // Кому он мешает, тот выключает прослушивание целиком — и тогда мы
+        // идём тем же путём, что и без разрешения: честно недосказываем.
+        guard settings.listenToAudio else {
+            probe.stop()
+            return candidate.kind >= .browser ? candidate : nil
+        }
+
         guard probe.isAvailable else {
             // Без разрешения на прослушивание тишину от звука не отличить.
             // Тогда лучше недосказать, чем соврать: обычные приложения

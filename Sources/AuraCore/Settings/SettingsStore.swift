@@ -61,6 +61,10 @@ final class SettingsStore: ObservableObject {
 
     // Источники активностей
     @Published var enableMusic: Bool { didSet { save(enableMusic, "enableMusic") } }
+    /// Слушать ли звук вообще: и полоски спектра, и различение играющего
+    /// приложения от молчащего. Пока Aura слушает, macOS держит в строке меню
+    /// свой значок «идёт запись» — убрать его можно только перестав слушать.
+    @Published var listenToAudio: Bool { didSet { save(listenToAudio, "listenToAudio") } }
     @Published var enableScreenshots: Bool { didSet { save(enableScreenshots, "enableScreenshots") } }
     @Published var copyScreenshotToClipboard: Bool { didSet { save(copyScreenshotToClipboard, "copyScreenshotToClipboard") } }
     @Published var enableBattery: Bool { didSet { save(enableBattery, "enableBattery") } }
@@ -109,6 +113,10 @@ final class SettingsStore: ObservableObject {
     /// лишний значок виден и убирается одним кликом.
     @Published var notificationBadgeWhenAppOpen: Bool { didSet { save(notificationBadgeWhenAppOpen, "notificationBadgeWhenAppOpen") } }
     /// Правила по приложениям: имя → "card", "badge" или "off".
+    /// Снимать значок с самого баннера, когда приложения на Маке нет.
+    /// Требует разрешения на запись экрана — и спрашивается оно только
+    /// в первый раз, когда иконку действительно негде взять.
+    @Published var readIconsFromBanner: Bool { didSet { save(readIconsFromBanner, "readIconsFromBanner") } }
     @Published var notificationRules: [String: String] { didSet { save(notificationRules, "notificationRules") } }
     /// От кого уведомления уже приходили — чтобы в настройках было что настраивать.
     @Published var notificationKnownApps: [String] { didSet { save(notificationKnownApps, "notificationKnownApps") } }
@@ -214,6 +222,7 @@ final class SettingsStore: ObservableObject {
         virtualNotchWidth = double("virtualNotchWidth", 190)
 
         enableMusic = bool("enableMusic", true)
+        listenToAudio = bool("listenToAudio", true)
         enableScreenshots = bool("enableScreenshots", true)
         copyScreenshotToClipboard = bool("copyScreenshotToClipboard", true)
         enableBattery = bool("enableBattery", true)
@@ -235,6 +244,7 @@ final class SettingsStore: ObservableObject {
         notificationShowBody = bool("notificationShowBody", true)
         notificationTintFromIcon = bool("notificationTintFromIcon", true)
         notificationBadgeWhenAppOpen = bool("notificationBadgeWhenAppOpen", true)
+        readIconsFromBanner = bool("readIconsFromBanner", true)
         notificationRules = defaults.dictionary(forKey: "notificationRules") as? [String: String] ?? [:]
         notificationKnownApps = defaults.stringArray(forKey: "notificationKnownApps") ?? []
 
@@ -305,6 +315,7 @@ final class SettingsStore: ObservableObject {
         followMouseScreen = false
         virtualNotchWidth = 190
         enableMusic = true
+        listenToAudio = true
         enableScreenshots = true
         copyScreenshotToClipboard = true
         enableBattery = true
