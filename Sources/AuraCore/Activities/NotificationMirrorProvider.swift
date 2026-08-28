@@ -841,6 +841,12 @@ final class NotificationMirrorProvider: ObservableObject {
         return CGRect(origin: origin, size: size)
     }
 
+    /// Больше этого числа узлов у баннера не бывает: три строки, кнопки
+    /// и заголовок окна. Раскрытый центр уведомлений — это сотни узлов,
+    /// и обходить их целиком дважды в секунду незачем: как только стало
+    /// ясно, что это не баннер, обход прекращается.
+    private static let textLimit = 14
+
     private static func texts(in element: AXUIElement, depth: Int = 0) -> [String] {
         guard depth < 8 else { return [] }
         var result: [String] = []
@@ -859,6 +865,7 @@ final class NotificationMirrorProvider: ObservableObject {
            let list = children as? [AXUIElement] {
             for child in list {
                 result.append(contentsOf: texts(in: child, depth: depth + 1))
+                if result.count > Self.textLimit { return result }
             }
         }
 
