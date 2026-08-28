@@ -30,6 +30,11 @@ final class FocusActivityProvider {
         self.center = center
     }
 
+    /// Какой режим фокусирования включён прямо сейчас. Нужно для разбора:
+    /// пока включён «Не беспокоить», система не показывает баннеров вовсе,
+    /// и зеркало уведомлений выглядит сломанным, хотя оно работает.
+    var activeMode: String { readMode() ?? "выключен" }
+
     /// Есть ли у нас доступ к состоянию фокуса.
     var isAvailable: Bool {
         (try? Data(contentsOf: assertionsURL)) != nil
@@ -156,11 +161,29 @@ final class FocusActivityProvider {
 
     /// Идентификатор включённого режима или nil, если фокус выключен.
     private func readMode() -> String? {
-        guard let data = try? Data(contentsOf: assertionsURL),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let data = try? Data(contentsOf: assertionsURL) else { return nil }
+        return Self.mode(fromAssertions: data)
+    }
+
+    /// Разбор файла с включёнными режимами.
+    ///
+    /// Записи лежат не в корне, а внутри `data` — и именно поэтому режим
+    /// фокусирования не определялся никогда: разбор искал их сверху, ничего
+    /// не находил и честно отвечал «выключен». Проверялось это только
+    /// на выключенном фокусе, где ответ совпадал случайно.
+    ///
+    /// Обе формы поддерживаются: старая с записями в корне и нынешняя.
+    nonisolated static func mode(fromAssertions data: Data) -> String? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return nil }
 
-        let records = json["storeAssertionRecords"] as? [[String: Any]] ?? []
+        var records = json["storeAssertionRecords"] as? [[String: Any]] ?? []
+        if records.isEmpty, let groups = json["data"] as? [[String: Any]] {
+            for group in groups {
+                records += group["storeAssertionRecords"] as? [[String: Any]] ?? []
+            }
+        }
+
         for record in records {
             guard let details = record["assertionDetails"] as? [String: Any],
                   let identifier = details["assertionDetailsModeIdentifier"] as? String

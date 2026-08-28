@@ -203,6 +203,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             notchController?.close()
             return ok()
 
+        case .bannerShot:
+            let area = CGRect(x: 900, y: 0, width: 810, height: 260)
+            BannerIconReader.shot(of: area) { url in
+                AppDelegate.log("снимок баннера: \(url?.path ?? "не вышел")")
+            }
+            return ok(["снимок": "пишется в Application Support/Aura/banner-shot.png"])
+
         case .clearNotifications:
             notifications.markAllRead()
             return ok()
@@ -224,6 +231,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
             payload["зеркалоСлушает"] = notifications.isWatching
+            payload["режимФокусирования"] = focus.activeMode
+            payload["строкаМенюСистемы"] = RecordingIndicator.labels()
             payload["снимки"] = screenshots.diagnostics
             // Разговоры видно поимённо: разбиение по чатам иначе не проверить —
             // снаружи виден только общий счётчик активностей.

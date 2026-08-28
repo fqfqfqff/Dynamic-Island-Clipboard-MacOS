@@ -104,6 +104,21 @@ final class BannerIconReader {
         )
     }
 
+    /// Снимок области экрана в файл — для разбора.
+    static func shot(of area: CGRect, completion: @escaping (URL?) -> Void) {
+        Task {
+            let image = await capture(frame: area)
+            await MainActor.run {
+                guard let data = image?.pngData else { return completion(nil) }
+                let url = FileManager.default
+                    .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("Aura/banner-shot.png")
+                try? data.write(to: url)
+                completion(url)
+            }
+        }
+    }
+
     // MARK: - Снимок экрана
 
     /// Снимает прямоугольник экрана через ScreenCaptureKit.

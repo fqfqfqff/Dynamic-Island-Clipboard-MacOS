@@ -266,3 +266,39 @@ final class FullScreenPatienceTests: XCTestCase {
 private enum FakeScreen {
     static var fullHeight: NSScreen? { NSScreen.main }
 }
+
+/// Разбор файла с включёнными режимами фокусирования.
+///
+/// Записи лежат внутри `data`, а разбор искал их в корне — и режим
+/// не определялся никогда. Проверялось это только на выключенном фокусе,
+/// где ответ «выключен» совпадал случайно.
+final class FocusAssertionsTests: XCTestCase {
+    private func data(_ json: String) -> Data { Data(json.utf8) }
+
+    func testModeInsideDataIsFound() {
+        let file = data("""
+        {"data":[{"storeAssertionRecords":[
+          {"assertionDetails":{"assertionDetailsModeIdentifier":"com.apple.sleep.sleep-mode"}}
+        ]}]}
+        """)
+        XCTAssertEqual(
+            FocusActivityProvider.mode(fromAssertions: file),
+            "com.apple.sleep.sleep-mode"
+        )
+    }
+
+    /// Старая форма — записи прямо в корне — тоже должна читаться.
+    func testModeInRootStillWorks() {
+        let file = data("""
+        {"storeAssertionRecords":[
+          {"assertionDetails":{"assertionDetailsModeIdentifier":"com.apple.focus.work"}}
+        ]}
+        """)
+        XCTAssertEqual(FocusActivityProvider.mode(fromAssertions: file), "com.apple.focus.work")
+    }
+
+    func testNoRecordsMeansNoFocus() {
+        XCTAssertNil(FocusActivityProvider.mode(fromAssertions: data(#"{"data":[{}]}"#)))
+        XCTAssertNil(FocusActivityProvider.mode(fromAssertions: data("{}")))
+    }
+}

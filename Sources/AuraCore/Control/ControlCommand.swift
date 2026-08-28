@@ -77,6 +77,10 @@ enum ControlCommand {
     case autostart(Bool)
     /// Снять все непрочитанные уведомления разом.
     case clearNotifications
+    /// Снимок правого верхнего угла экрана — того места, где система
+    /// показывает баннеры. Нужен для разбора: без него не отличить
+    /// «зеркало не работает» от «баннера не было».
+    case bannerShot
 
     private struct Envelope: Decodable {
         let cmd: String
@@ -105,6 +109,8 @@ enum ControlCommand {
             return .status
         case "notifications.clear":
             return .clearNotifications
+        case "banner.shot":
+            return .bannerShot
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":
@@ -156,6 +162,8 @@ enum ControlCommand {
             return .status
         case "notifications.clear":
             return .clearNotifications
+        case "banner.shot":
+            return .bannerShot
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":

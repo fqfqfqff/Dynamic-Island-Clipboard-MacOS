@@ -116,6 +116,8 @@ final class NotificationMirrorProvider: ObservableObject {
     private(set) var recentBanners: [[String]] = []
     /// Обход открытых баннеров. Работает, только пока они на экране.
     private var sweepTimer: Timer?
+    /// Медленный обход-страховка. Работает всё время, пока зеркало включено.
+    private var idleSweepTimer: Timer?
     private var sweepStartedAt = Date()
     /// Окно последнего баннера — через него работает ответ.
     private var latestBanner: AXUIElement?
@@ -182,13 +184,27 @@ final class NotificationMirrorProvider: ObservableObject {
         // уведомлении.
         Self.warmUp { [weak self] in self?.refreshIcons() }
 
-        AXObserverAddNotification(observer, element, kAXWindowCreatedNotification as CFString, context)
-        CFRunLoopAddSource(
-            CFRunLoopGetCurrent(),
-            AXObserverGetRunLoopSource(observer),
-            .defaultMode
+        let added = AXObserverAddNotification(
+            observer, element, kAXWindowCreatedNotification as CFString, context
         )
+        if added != .success {
+            AppDelegate.log("зеркало уведомлений: подписка не удалась, код \(added.rawValue)")
+        }
+
+        // `commonModes`, а не `defaultMode`: пока открыто меню или идёт
+        // прокрутка, рун-луп сидит в режиме слежения — и в нём события
+        // Универсального доступа до нас не доходили вовсе.
+        for mode in [CFRunLoopMode.defaultMode, .commonModes] {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), mode)
+        }
         self.observer = observer
+
+        // Медленный обход работает всегда, а не только после события
+        // «создано окно». Событие приходит не на каждый баннер, а если
+        // подписка отвалилась — то и вовсе ни на один. Обход раз в полторы
+        // секунды стоит одной проверки списка окон и гарантирует, что
+        // баннер не пропустим.
+        startIdleSweep()
 
         // Открыл приложение — значит, прочитал. Другого способа узнать это
         // у нас нет: чужие уведомления система помечать прочитанными не даёт.
@@ -224,6 +240,8 @@ final class NotificationMirrorProvider: ObservableObject {
         element = nil
         latestBanner = nil
         stopSweep()
+        idleSweepTimer?.invalidate()
+        idleSweepTimer = nil
         seen.removeAll()
 
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -527,6 +545,16 @@ final class NotificationMirrorProvider: ObservableObject {
     ///
     /// Поэтому, пока баннеры на экране, их содержимое перечитывается. Работа
     /// живёт секунды: не осталось баннеров — обход останавливается сам.
+    /// Постоянный медленный обход — страховка на случай, когда события нет.
+    private func startIdleSweep() {
+        idleSweepTimer?.invalidate()
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sweepBanners(idle: true) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        idleSweepTimer = timer
+    }
+
     private func startSweep() {
         sweepStartedAt = Date()
         guard sweepTimer == nil else { return }
@@ -543,18 +571,21 @@ final class NotificationMirrorProvider: ObservableObject {
         sweepTimer = nil
     }
 
-    private func sweepBanners() {
-        // Центр уведомлений можно и раскрыть — тогда окно висит, пока его
-        // не закроют. Дольше полуминуты обход не живёт: новые уведомления
-        // в это время всё равно придут со своим событием.
-        guard Date().timeIntervalSince(sweepStartedAt) < 30 else { return stopSweep() }
+    private func sweepBanners(idle: Bool = false) {
+        // Частый обход дольше полуминуты не живёт: медленный всё равно
+        // продолжит следить.
+        if !idle, Date().timeIntervalSince(sweepStartedAt) >= 30 { return stopSweep() }
 
-        guard let element else { return stopSweep() }
+        guard let element else {
+            if !idle { stopSweep() }
+            return
+        }
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
             element, kAXWindowsAttribute as CFString, &value
         ) == .success, let windows = value as? [AXUIElement], !windows.isEmpty else {
-            return stopSweep()
+            if !idle { stopSweep() }
+            return
         }
 
         for window in windows {
@@ -646,6 +677,7 @@ final class NotificationMirrorProvider: ObservableObject {
             return
         }
 
+        AppDelegate.log("зеркало: показываю «\(content.app) / \(content.sender)»")
         unread[content.app, default: 0] += 1
         bundleIDs[content.app] = application?.bundleIdentifier
 
