@@ -407,13 +407,33 @@ final class NotchWindowController {
         updatePanelVisibility()
     }
 
+    /// Уведомление, которое не успели увидеть: панель спрятали, пока
+    /// карточка висела.
+    private var eventInterrupted = false
+
     private func updatePanelVisibility() {
         guard let panel else { return }
+
         if isHiddenByUser || isHiddenByFullScreen {
+            // Панель прячут посреди уведомления — значит, его не увидели.
+            // Просто свернуть карточку значит потерять сообщение: второй раз
+            // система его не покажет.
+            eventInterrupted = viewModel.state == .event
             viewModel.collapse()
             panel.orderOut(nil)
-        } else {
-            panel.orderFrontRegardless()
+            return
+        }
+
+        panel.orderFrontRegardless()
+
+        guard eventInterrupted else { return }
+        eventInterrupted = false
+
+        // Показываем заново — коротко: сообщение уже не новое, но человек
+        // его так и не видел.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self, self.viewModel.state.rank < NotchState.event.rank else { return }
+            self.viewModel.presentEvent(hold: max(3, self.settings.notificationHold))
         }
     }
 

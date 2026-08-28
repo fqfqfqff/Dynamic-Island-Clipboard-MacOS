@@ -255,9 +255,10 @@ final class FullScreenPatienceTests: XCTestCase {
         watcher.stop()
     }
 
-    func testPatienceIsLongerThanASwipe() {
-        // Жест переключения рабочих столов — около трети секунды.
-        XCTAssertGreaterThan(FullScreenWatcher.patience, 0.35)
+    /// Выдержка должна перекрывать не только сам жест, но и Mission Control:
+    /// пока он открыт, строка меню спрятана всё это время.
+    func testPatienceCoversMissionControl() {
+        XCTAssertGreaterThanOrEqual(FullScreenWatcher.patience, 1.5)
     }
 }
 

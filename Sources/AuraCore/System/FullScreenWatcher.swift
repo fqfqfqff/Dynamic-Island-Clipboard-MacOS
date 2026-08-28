@@ -59,7 +59,7 @@ final class FullScreenWatcher {
     /// прячет строку меню — и остров исчезал прямо посреди жеста вместе
     /// с уведомлением, которое в нём висело. Возврат наоборот мгновенный:
     /// вышли из полноэкранного — показываем сразу.
-    static let patience: TimeInterval = 0.6
+    static let patience: TimeInterval = 2
     private var hiddenSince: Date?
 
     /// Дешёвая проверка — вызывается ещё и на движение мыши.
@@ -67,14 +67,19 @@ final class FullScreenWatcher {
         guard let screen = screenProvider() else { return }
 
         let menuBarHidden = screen.visibleFrame.maxY >= screen.frame.maxY - 1
-        let next = menuBarHidden || deepResult
+
+        // Окно во весь экран — признак надёжный, ему верим сразу.
+        // Спрятанная строка меню — признак дешёвый и лживый: её прячут
+        // и переключение рабочих столов, и Mission Control, и жест
+        // тремя пальцами. Ему верим только если он держится.
+        let next = deepResult || menuBarHidden
 
         guard next != isFullScreen else {
             hiddenSince = nil
             return
         }
 
-        if next {
+        if next, !deepResult {
             let since = hiddenSince ?? Date()
             hiddenSince = since
 

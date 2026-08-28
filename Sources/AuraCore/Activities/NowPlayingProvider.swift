@@ -362,6 +362,18 @@ final class NowPlayingProvider: ObservableObject {
             return candidate.kind >= .browser ? candidate : nil
         }
 
+        // Вердикт уже есть и ещё свеж — слушать нечего.
+        //
+        // Пока тап открыт, macOS держит в строке меню значок записи. Держать
+        // его весь альбом ради ответа, который не меняется, — плохой обмен:
+        // приложение, которое играет, играет и через минуту. Поэтому тап
+        // закрывается сразу после ответа и открывается заново, когда ответ
+        // протух или сменился источник.
+        if let verdict = confirmed[candidate.pid], verdict.until > Date() {
+            probe.stop()
+            return verdict.isSilent ? nil : candidate
+        }
+
         probe.listen(to: candidate.objectID)
         switch probe.isSilent {
         case .some(true):
@@ -372,6 +384,8 @@ final class NowPlayingProvider: ObservableObject {
             return nil
         case .some(false):
             silentStrikes[candidate.pid] = 0
+            confirmed[candidate.pid] = (false, Date().addingTimeInterval(Self.verdictLife))
+            probe.stop()
             return candidate
         case .none:
             // Вердикта ещё нет: у плеера и браузера звук — работа, их
@@ -379,6 +393,11 @@ final class NowPlayingProvider: ObservableObject {
             return candidate.kind >= .browser ? candidate : nil
         }
     }
+
+    /// Сколько живёт ответ «этот процесс звучит».
+    private static let verdictLife: TimeInterval = 45
+    /// Ответы по процессам: что уже выяснили и до какого момента верим.
+    private var confirmed: [pid_t: (isSilent: Bool, until: Date)] = [:]
 
     private func isKnownSilent(_ source: AudioProcessMonitor.Source) -> Bool {
         guard let until = silentUntil[source.pid] else { return false }
