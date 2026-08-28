@@ -223,6 +223,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["правоВставки"] = Paster.canPaste
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
+            payload["зеркалоСлушает"] = notifications.isWatching
             payload["снимки"] = screenshots.diagnostics
             // Разговоры видно поимённо: разбиение по чатам иначе не проверить —
             // снаружи виден только общий счётчик активностей.

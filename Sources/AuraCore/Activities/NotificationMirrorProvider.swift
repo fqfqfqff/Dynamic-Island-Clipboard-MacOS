@@ -135,6 +135,11 @@ final class NotificationMirrorProvider: ObservableObject {
 
     var isAvailable: Bool { AXIsProcessTrusted() }
 
+    /// Слушаем ли мы баннеры прямо сейчас. Отличается от `isAvailable`:
+    /// разрешение может быть выдано, а наблюдатель не заведён — например,
+    /// если центра уведомлений не было в списке процессов при запуске.
+    var isWatching: Bool { observer != nil }
+
     /// Подставить уведомление вручную — для снимков интерфейса и тестов.
     func inject(_ message: Message?) {
         latest = message
@@ -171,6 +176,11 @@ final class NotificationMirrorProvider: ObservableObject {
             // Колбэк приходит на главном потоке рун-лупа, где наблюдатель и создан.
             MainActor.assumeIsolated { provider.handleBanner(element) }
         }, &observer) == .success, let observer else { return }
+
+        // Список установленных приложений собирается заранее и в фоне:
+        // на главном потоке он стоил бы секунды заминки на первом же
+        // уведомлении.
+        Self.warmUp { [weak self] in self?.refreshIcons() }
 
         AXObserverAddNotification(observer, element, kAXWindowCreatedNotification as CFString, context)
         CFRunLoopAddSource(
@@ -467,6 +477,22 @@ final class NotificationMirrorProvider: ObservableObject {
         for (thread, count) in threads where Self.app(ofThread: thread) == app {
             center.updateArtwork(id: Self.activityID(forThread: thread), artwork: icon)
             _ = count
+        }
+    }
+
+    /// Перебрать значки заново — например, когда список установленных
+    /// приложений наконец собрался.
+    private func refreshIcons() {
+        for thread in threads.keys {
+            let app = Self.app(ofThread: thread)
+            guard let icon = Self.icon(named: app), !Self.isMonogram(icon) else { continue }
+            center.updateArtwork(id: Self.activityID(forThread: thread), artwork: icon)
+        }
+
+        if var message = latest, Self.isMonogram(message.icon),
+           let icon = Self.icon(named: message.app), !Self.isMonogram(icon) {
+            message.icon = icon
+            latest = message
         }
     }
 
@@ -918,11 +944,68 @@ final class NotificationMirrorProvider: ObservableObject {
     /// Перебор папок стоит десятки миллисекунд, а состав меняется редко,
     /// поэтому список собирается один раз и живёт до перезапуска.
     private nonisolated(unsafe) static var installed: [String: URL]?
+    private nonisolated(unsafe) static var scanStarted = false
+    private nonisolated(unsafe) static let scanLock = NSLock()
 
-    private static func installedApplication(named name: String) -> URL? {
-        if installed == nil { installed = scanApplications() }
+    /// Собрать список установленных приложений заранее и не на главном потоке.
+    ///
+    /// Обход папок с чтением таблиц перевода у сотни приложений стоит почти
+    /// секунду. На главном потоке это была бы секунда заминки ровно в тот
+    /// момент, когда пришло первое уведомление, — то есть на самом видном
+    /// месте. Пока список не готов, обходимся запущенными приложениями
+    /// и нарисованной буквой.
+    nonisolated static func warmUp(then finished: (@Sendable @MainActor () -> Void)? = nil) {
+        scanLock.lock()
+
+        // Список уже собран — звать обратно можно сразу.
+        if installed != nil {
+            scanLock.unlock()
+            if let finished {
+                DispatchQueue.main.async { MainActor.assumeIsolated { finished() } }
+            }
+            return
+        }
+
+        // Сбор уже идёт — встаём в очередь, а не запускаем второй.
+        if let finished { waiters.append(finished) }
+        if scanStarted {
+            scanLock.unlock()
+            return
+        }
+        scanStarted = true
+        scanLock.unlock()
+
+        DispatchQueue.global(qos: .utility).async {
+            let found = scanApplications()
+
+            scanLock.lock()
+            installed = found
+            let callbacks = waiters
+            waiters.removeAll()
+            scanLock.unlock()
+
+            guard !callbacks.isEmpty else { return }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { callbacks.forEach { $0() } }
+            }
+        }
+    }
+
+    private nonisolated(unsafe) static var waiters: [@Sendable @MainActor () -> Void] = []
+
+    private nonisolated static func installedApplication(named name: String) -> URL? {
+        scanLock.lock()
+        let installed = self.installed
+        scanLock.unlock()
+
+        // Список ещё собирается — значок появится, когда он будет готов.
+        guard let installed else {
+            warmUp()
+            return nil
+        }
+
         let target = normalized(name)
-        guard !target.isEmpty, let installed else { return nil }
+        guard !target.isEmpty else { return nil }
 
         if let exact = installed[target] { return exact }
         // Нестрого: «WhatsApp Messenger» на телефоне и «WhatsApp» на Маке.
@@ -934,7 +1017,7 @@ final class NotificationMirrorProvider: ObservableObject {
         }?.value
     }
 
-    private static func scanApplications() -> [String: URL] {
+    private nonisolated static func scanApplications() -> [String: URL] {
         let roots = [
             "/Applications",
             "/Applications/Utilities",
@@ -1025,7 +1108,7 @@ final class NotificationMirrorProvider: ObservableObject {
     /// до него не добираются: они смотрят на язык нашего процесса, а не на
     /// содержимое чужого бандла. Из-за этого «Редактор скриптов» не находил
     /// сам «Script Editor», и уведомление оставалось без иконки.
-    private static func localizedNames(of url: URL) -> [String] {
+    private nonisolated static func localizedNames(of url: URL) -> [String] {
         let resources = url.appendingPathComponent("Contents/Resources")
         var names: [String] = []
 
@@ -1088,7 +1171,7 @@ final class NotificationMirrorProvider: ObservableObject {
 
     /// Имя без регистра, пробелов и служебных знаков: «Telegram Desktop»
     /// и «telegram-desktop» должны считаться одним и тем же.
-    private static func normalized(_ name: String) -> String {
+    private nonisolated static func normalized(_ name: String) -> String {
         name.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 }

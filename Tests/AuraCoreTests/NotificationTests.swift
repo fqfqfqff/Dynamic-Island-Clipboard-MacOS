@@ -182,6 +182,12 @@ final class NotificationMonogramTests: XCTestCase {
     /// оставалось с нарисованной буквой вместо иконки. Так было со всеми
     /// приложениями, у которых имя переводится: Почта, Сообщения, Фото.
     func testLocalizedAppNameFindsTheRealIcon() throws {
+        // Список установленных приложений собирается в фоне — на главном
+        // потоке он стоил бы секунды заминки на первом уведомлении.
+        let ready = expectation(description: "список приложений собран")
+        NotificationMirrorProvider.warmUp { ready.fulfill() }
+        wait(for: [ready], timeout: 10)
+
         let icon = NotificationMirrorProvider.icon(named: "Редактор скриптов")
         try XCTSkipIf(icon == nil, "Редактора скриптов нет на этой машине")
 
