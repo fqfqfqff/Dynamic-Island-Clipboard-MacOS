@@ -231,7 +231,7 @@ final class SettingsStore: ObservableObject {
         notificationStyle = defaults.string(forKey: "notificationStyle") ?? "card"
         notificationHold = double("notificationHold", 5)
         notificationBadgeTTL = double("notificationBadgeTTL", 10)
-        notificationScale = double("notificationScale", 1.25)
+        notificationScale = double("notificationScale", 1)
         notificationShowBody = bool("notificationShowBody", true)
         notificationTintFromIcon = bool("notificationTintFromIcon", true)
         notificationBadgeWhenAppOpen = bool("notificationBadgeWhenAppOpen", true)

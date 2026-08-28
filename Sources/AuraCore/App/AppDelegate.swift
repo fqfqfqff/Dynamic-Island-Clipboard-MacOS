@@ -226,6 +226,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["снимки"] = screenshots.diagnostics
             // Разговоры видно поимённо: разбиение по чатам иначе не проверить —
             // снаружи виден только общий счётчик активностей.
+            payload["последниеБаннеры"] = notifications.recentBanners.suffix(4).map { $0 }
             payload["чаты"] = notifications.threads.reduce(into: [String: Int]()) {
                 $0[$1.key.replacingOccurrences(of: "\u{1}", with: " → ")] = $1.value
             }
@@ -240,6 +241,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
                 [
                     "приложение": message.app,
                     "значокНайден": message.icon != nil,
+                    "значокСвой": NotificationMirrorProvider.isMonogram(message.icon),
                     "идентификатор": message.bundleID ?? "—",
                     "тип": String(describing: message.kind),
                 ] as [String: Any]

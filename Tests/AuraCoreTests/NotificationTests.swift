@@ -176,6 +176,21 @@ final class NotificationMonogramTests: XCTestCase {
         XCTAssertEqual(icon?.size, CGSize(width: 64, height: 64))
     }
 
+    /// Имя в баннере переведённое, а в `Info.plist` лежит английское.
+    /// Перевод хранится отдельной таблицей внутри бандла, и без неё
+    /// «Редактор скриптов» не находил сам «Script Editor» — уведомление
+    /// оставалось с нарисованной буквой вместо иконки. Так было со всеми
+    /// приложениями, у которых имя переводится: Почта, Сообщения, Фото.
+    func testLocalizedAppNameFindsTheRealIcon() throws {
+        let icon = NotificationMirrorProvider.icon(named: "Редактор скриптов")
+        try XCTSkipIf(icon == nil, "Редактора скриптов нет на этой машине")
+
+        XCTAssertFalse(
+            NotificationMirrorProvider.isMonogram(icon),
+            "нашлась нарисованная буква, а не иконка приложения"
+        )
+    }
+
     func testSameNameKeepsTheSameLook() {
         let first = NotificationMirrorProvider.monogram(for: "Госуслуги")
         let second = NotificationMirrorProvider.monogram(for: "Госуслуги")

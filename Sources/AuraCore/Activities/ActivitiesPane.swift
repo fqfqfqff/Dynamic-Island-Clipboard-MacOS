@@ -6,7 +6,12 @@ import SwiftUI
 struct ActivitiesPane: View {
     /// Высота одной строки и шапки со счётчиком. Те же числа знает
     /// `NotchViewModel`, иначе расчёт панели разойдётся с разметкой.
-    static let rowHeight: CGFloat = 42
+    /// Высота строки списка.
+    ///
+    /// Список в раскрытом острове — это то, во что смотрят в упор, а не
+    /// мельком: сорок две точки на строку с девятипунктовым текстом читались
+    /// как мелкий шрифт в договоре.
+    static let rowHeight: CGFloat = 52
     static let headerHeight: CGFloat = 22
     static let bannerHeight: CGFloat = 54
 
@@ -45,7 +50,7 @@ struct ActivitiesPane: View {
             .padding(.vertical, 4)
             .background(Capsule().fill(Color.white.opacity(0.12)))
         }
-        .padding(.horizontal, 9)
+        .padding(.horizontal, 11)
         .frame(height: Self.bannerHeight)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.14)))
     }
@@ -155,30 +160,32 @@ private struct ActivityRow: View {
     }
 
     private var content: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 11) {
             icon
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(activity.title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
                 if let subtitle = activity.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.5))
                         .monospacedDigit()
+                        .lineLimit(1)
                 }
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 8)
 
             switch activity.indicator {
             case .progress(let value):
                 ProgressRing(progress: value, tint: activity.tint)
-                    .frame(width: 16, height: 16)
+                    .frame(width: 19, height: 19)
             case .text(let text):
                 Text(text)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(activity.tint)
                     .monospacedDigit()
             case .pulse:
@@ -194,7 +201,7 @@ private struct ActivityRow: View {
         // и если строка окажется выше расчёта — низ списка просто срежется
         // краем панели. Лучше одинаковые строки, чем обрезанный список.
         .frame(height: ActivitiesPane.rowHeight)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color.white.opacity(0.06)))
     }
 
     @ViewBuilder
@@ -203,13 +210,13 @@ private struct ActivityRow: View {
             Image(nsImage: artwork)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 24, height: 24)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .frame(width: 32, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         } else {
             Image(systemName: activity.symbol)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(activity.tint)
-                .frame(width: 20)
+                .frame(width: 26)
         }
     }
 }

@@ -315,7 +315,7 @@ struct NotchRootView: View {
     }
 
     /// Насколько свечению позволено выходить за кромку карточки.
-    static let rimBleed: CGFloat = 26
+    static let rimBleed: CGFloat = 14
 
     /// Обводка проявляется только ниже выреза.
     ///

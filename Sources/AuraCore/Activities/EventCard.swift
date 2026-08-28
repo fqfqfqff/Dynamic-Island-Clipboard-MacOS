@@ -158,48 +158,42 @@ struct EventRim: View {
 
     var body: some View {
         ZStack {
-            // Ровная обводка — основа, она есть всегда.
+            // Тонкая линия — основа. Именно она и должна читаться как
+            // обводка: широкое свечение вокруг выреза выглядело подтёком,
+            // а не аккуратным контуром.
             shape
                 .stroke(
                     LinearGradient(
-                        colors: [vivid, vivid.opacity(0.45)],
+                        colors: [vivid, vivid.opacity(0.5)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
-                    lineWidth: 1.6
+                    lineWidth: 1.2
                 )
 
-            // Бегущий блик: вращается сам градиент, а не фигура, — иначе
-            // вместе со светом поехал бы и контур выреза.
+            // Блик бежит по самой линии: вращается сам градиент, а не фигура, —
+            // иначе вместе со светом поехал бы и контур выреза.
             shape
                 .stroke(
                     AngularGradient(
                         gradient: Gradient(stops: [
                             .init(color: .clear, location: 0),
-                            .init(color: .white.opacity(0.9), location: 0.06),
-                            .init(color: vivid, location: 0.12),
-                            .init(color: .clear, location: 0.28),
+                            .init(color: .white.opacity(0.85), location: 0.05),
+                            .init(color: vivid, location: 0.1),
+                            .init(color: .clear, location: 0.22),
                             .init(color: .clear, location: 1),
                         ]),
                         center: .center,
                         angle: .degrees(sweep)
                     ),
-                    lineWidth: 2.2
+                    lineWidth: 1.4
                 )
-                .blur(radius: 1.2)
 
-            // Свечение наружу тремя слоями с разным размытием: два дают
-            // ступеньку, которая читается как вторая обводка, а не как ореол.
-            // Каждый следующий шире и слабее — так свет затухает плавно.
+            // Одно мягкое свечение — только чтобы линия не выглядела
+            // приклеенной. Оно едва заметно и сразу за линией затухает.
             shape
-                .stroke(vivid.opacity(settled ? 0.7 : 0.95), lineWidth: 2.5)
-                .blur(radius: 4)
-            shape
-                .stroke(vivid.opacity(settled ? 0.4 : 0.6), lineWidth: 5)
-                .blur(radius: 11)
-            shape
-                .stroke(vivid.opacity(settled ? 0.2 : 0.35), lineWidth: 9)
-                .blur(radius: 20)
+                .stroke(vivid.opacity(settled ? 0.35 : 0.6), lineWidth: 2)
+                .blur(radius: 5)
         }
         .allowsHitTesting(false)
         .onAppear {

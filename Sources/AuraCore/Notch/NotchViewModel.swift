@@ -101,9 +101,16 @@ final class NotchViewModel: ObservableObject {
     /// не проваливался.
     var expandedWindowSize: CGSize {
         let panel = expandedSize
+        // Карточка уведомления бывает шире раскрытой панели, а окно у них
+        // общее. Мерить только по панели значит обрезать карточку по бокам
+        // вместе со свечением обводки — ровно это и было видно как
+        // «срезанные края».
+        let widest = max(panel.width, eventSize.width)
+        let tallest = max(panel.height, eventSize.height)
+
         return CGSize(
-            width: min(Self.windowSize.width, max(compactWindowWidth, panel.width + 120)),
-            height: min(Self.windowSize.height, panel.height + 90)
+            width: min(Self.windowSize.width, max(compactWindowWidth, widest + 120)),
+            height: min(Self.windowSize.height, tallest + 90)
         )
     }
 

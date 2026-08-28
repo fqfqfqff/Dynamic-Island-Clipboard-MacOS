@@ -102,6 +102,12 @@ final class NotificationMirrorProvider: ObservableObject {
     /// в одном разговоре повторяется, и через минуту это уже новое событие,
     /// а не тот же баннер, прочитанный второй раз.
     private var seen: [String: Date] = [:]
+    /// Последние разобранные баннеры — для диагностики.
+    ///
+    /// Уведомления с телефона приходят не в том же виде, что от приложений
+    /// на Маке, и понять, почему у одного из них не нашлось значка, можно
+    /// только по узлам самого баннера.
+    private(set) var recentBanners: [[String]] = []
     /// Обход открытых баннеров. Работает, только пока они на экране.
     private var sweepTimer: Timer?
     private var sweepStartedAt = Date()
@@ -434,9 +440,16 @@ final class NotificationMirrorProvider: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self else { return }
             let texts = Self.texts(in: window)
+            self.remember(texts)
             if let content = Self.content(from: texts) { self.present(content) }
             self.startSweep()
         }
+    }
+
+    private func remember(_ texts: [String]) {
+        guard !texts.isEmpty, recentBanners.last != texts else { return }
+        recentBanners.append(texts)
+        if recentBanners.count > 10 { recentBanners.removeFirst() }
     }
 
     /// Сколько времени одно и то же сообщение считается тем же самым.
@@ -498,7 +511,9 @@ final class NotificationMirrorProvider: ObservableObject {
             let texts = Self.texts(in: window)
             // Раскрытый центр уведомлений — это не баннер: в нём висят
             // виджеты, погода и биржа, и разбирать его как сообщение нельзя.
-            guard texts.count <= 12, let content = Self.content(from: texts) else { continue }
+            guard texts.count <= 12 else { continue }
+            remember(texts)
+            guard let content = Self.content(from: texts) else { continue }
             latestBanner = window
             present(content)
         }
@@ -520,7 +535,10 @@ final class NotificationMirrorProvider: ObservableObject {
         guard rule != "off" else { return }
 
         let application = Self.application(named: content.app)
-        let icon = Self.icon(named: content.app)
+        // Имя приложения в баннере бывает пустым — уведомления с телефона
+        // приходят не в том же виде, что от приложений на Маке. Тогда буква
+        // берётся от отправителя: он есть всегда, и это лучше пустого места.
+        let icon = Self.icon(named: content.app) ?? Self.monogram(for: content.sender)
         let kind = Self.kind(from: content.body)
         let tint = settings.notificationTintFromIcon
             ? (icon?.accentColor ?? .indigo)
@@ -760,6 +778,14 @@ final class NotificationMirrorProvider: ObservableObject {
 
     private nonisolated(unsafe) static var monograms: [String: NSImage] = [:]
 
+    /// Нарисованный нами значок или настоящая иконка приложения.
+    /// В диагностике это единственный способ отличить «иконку не нашли»
+    /// от «иконки нет вовсе».
+    static func isMonogram(_ image: NSImage?) -> Bool {
+        guard let image else { return false }
+        return monograms.values.contains { $0 === image }
+    }
+
     /// Установленные приложения: имя → бандл.
     ///
     /// Перебор папок стоит десятки миллисекунд, а состав меняется редко,
@@ -811,12 +837,13 @@ final class NotificationMirrorProvider: ObservableObject {
                 // Имя в баннере — то, которое видит человек, а оно переведено:
                 // на русской системе «Сообщения», а в Info.plist «Messages».
                 // `displayName(atPath:)` отдаёт именно видимое имя.
-                let names = [
+                var names = [
                     FileManager.default.displayName(atPath: url.path),
                     Bundle(url: url)?.localizedInfoDictionary?["CFBundleDisplayName"] as? String,
                     Bundle(url: url)?.displayName,
                     url.deletingPathExtension().lastPathComponent,
                 ].compactMap { $0 }
+                names += localizedNames(of: url)
 
                 for name in names {
                     let key = normalized(name)
@@ -826,6 +853,42 @@ final class NotificationMirrorProvider: ObservableObject {
             }
         }
         return result
+    }
+
+    /// Все имена, под которыми приложение известно на разных языках.
+    ///
+    /// В баннере имя переведённое, и взять его из `Info.plist` нельзя: там
+    /// лежит английское. Перевод хранится отдельно — у современных приложений
+    /// одной таблицей `InfoPlist.loctable` со всеми языками сразу, у старых
+    /// файлом на язык. Ни `displayName(atPath:)`, ни `localizedInfoDictionary`
+    /// до него не добираются: они смотрят на язык нашего процесса, а не на
+    /// содержимое чужого бандла. Из-за этого «Редактор скриптов» не находил
+    /// сам «Script Editor», и уведомление оставалось без иконки.
+    private static func localizedNames(of url: URL) -> [String] {
+        let resources = url.appendingPathComponent("Contents/Resources")
+        var names: [String] = []
+
+        let loctable = resources.appendingPathComponent("InfoPlist.loctable")
+        if let table = NSDictionary(contentsOf: loctable) as? [String: [String: Any]] {
+            for entry in table.values {
+                names += [entry["CFBundleDisplayName"], entry["CFBundleName"]]
+                    .compactMap { $0 as? String }
+            }
+            return names
+        }
+
+        // Старый формат — по файлу на язык. Заглядываем сюда только когда
+        // общей таблицы нет: это десятки лишних чтений на приложение.
+        let folders = (try? FileManager.default.contentsOfDirectory(
+            at: resources, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        )) ?? []
+
+        for folder in folders.prefix(40) where folder.pathExtension == "lproj" {
+            let strings = folder.appendingPathComponent("InfoPlist.strings")
+            guard let table = NSDictionary(contentsOf: strings) as? [String: String] else { continue }
+            names += [table["CFBundleDisplayName"], table["CFBundleName"]].compactMap { $0 }
+        }
+        return names
     }
 
     private static func application(named name: String) -> NSRunningApplication? {
