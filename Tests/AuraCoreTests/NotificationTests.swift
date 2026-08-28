@@ -186,3 +186,29 @@ final class NotificationMonogramTests: XCTestCase {
         XCTAssertNil(NotificationMirrorProvider.monogram(for: "   "))
     }
 }
+
+/// Отсев повторов.
+///
+/// Событие «создано окно» приходит не на каждое уведомление: пока баннер
+/// на экране, следующее сообщение система показывает в том же окне. Поэтому
+/// содержимое перечитывается по таймеру — и без отсева остров дёргался бы
+/// на каждом чтении.
+final class NotificationRepeatTests: XCTestCase {
+    private let now = Date()
+
+    func testSameBannerReadAgainIsNotANewMessage() {
+        let justShown = now.addingTimeInterval(-0.5)
+        XCTAssertTrue(NotificationMirrorProvider.isRepeat(shownAt: justShown, now: now))
+    }
+
+    /// «ок» от того же человека через минуту — новое сообщение, а не тот же
+    /// баннер. Без срока такие терялись бы совсем.
+    func testSameTextLaterIsANewMessage() {
+        let longAgo = now.addingTimeInterval(-NotificationMirrorProvider.repeatWindow - 1)
+        XCTAssertFalse(NotificationMirrorProvider.isRepeat(shownAt: longAgo, now: now))
+    }
+
+    func testFirstTimeIsNeverARepeat() {
+        XCTAssertFalse(NotificationMirrorProvider.isRepeat(shownAt: nil, now: now))
+    }
+}

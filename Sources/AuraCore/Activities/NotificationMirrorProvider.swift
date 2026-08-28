@@ -98,7 +98,13 @@ final class NotificationMirrorProvider: ObservableObject {
     private let settings: SettingsStore
     private var observer: AXObserver?
     private var element: AXUIElement?
-    private var seen: [String] = []
+    /// Что уже показывали и когда. Со сроком: одно и то же сообщение
+    /// в одном разговоре повторяется, и через минуту это уже новое событие,
+    /// а не тот же баннер, прочитанный второй раз.
+    private var seen: [String: Date] = [:]
+    /// Обход открытых баннеров. Работает, только пока они на экране.
+    private var sweepTimer: Timer?
+    private var sweepStartedAt = Date()
     /// Окно последнего баннера — через него работает ответ.
     private var latestBanner: AXUIElement?
     /// Имя приложения из баннера → его идентификатор.
@@ -195,6 +201,7 @@ final class NotificationMirrorProvider: ObservableObject {
         observer = nil
         element = nil
         latestBanner = nil
+        stopSweep()
         seen.removeAll()
 
         NSWorkspace.shared.notificationCenter.removeObserver(self)
@@ -427,17 +434,86 @@ final class NotificationMirrorProvider: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             guard let self else { return }
             let texts = Self.texts(in: window)
-            guard let content = Self.content(from: texts) else { return }
-            self.present(content)
+            if let content = Self.content(from: texts) { self.present(content) }
+            self.startSweep()
+        }
+    }
+
+    /// Сколько времени одно и то же сообщение считается тем же самым.
+    ///
+    /// Обход перечитывает баннер каждые полсекунды, поэтому без отсева остров
+    /// дёргался бы без конца. Но срок нужен: «ок» от того же человека через
+    /// минуту — это новое сообщение, а не тот же баннер.
+    nonisolated static let repeatWindow: TimeInterval = 45
+
+    nonisolated static func isRepeat(
+        shownAt: Date?, now: Date, within: TimeInterval = repeatWindow
+    ) -> Bool {
+        guard let shownAt else { return false }
+        return now.timeIntervalSince(shownAt) < within
+    }
+
+    // MARK: - Обход открытых баннеров
+
+    /// Событие «создано окно» приходит не на каждое уведомление.
+    ///
+    /// Пока баннер на экране, следующее сообщение система показывает в том же
+    /// окне — просто меняет в нём текст. Нового окна нет, события нет, и всё,
+    /// что пришло следом, мы теряли: остров не вырастал, превью не было.
+    /// Ровно так и терялась половина уведомлений.
+    ///
+    /// Поэтому, пока баннеры на экране, их содержимое перечитывается. Работа
+    /// живёт секунды: не осталось баннеров — обход останавливается сам.
+    private func startSweep() {
+        sweepStartedAt = Date()
+        guard sweepTimer == nil else { return }
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sweepBanners() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        sweepTimer = timer
+    }
+
+    private func stopSweep() {
+        sweepTimer?.invalidate()
+        sweepTimer = nil
+    }
+
+    private func sweepBanners() {
+        // Центр уведомлений можно и раскрыть — тогда окно висит, пока его
+        // не закроют. Дольше полуминуты обход не живёт: новые уведомления
+        // в это время всё равно придут со своим событием.
+        guard Date().timeIntervalSince(sweepStartedAt) < 30 else { return stopSweep() }
+
+        guard let element else { return stopSweep() }
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element, kAXWindowsAttribute as CFString, &value
+        ) == .success, let windows = value as? [AXUIElement], !windows.isEmpty else {
+            return stopSweep()
+        }
+
+        for window in windows {
+            let texts = Self.texts(in: window)
+            // Раскрытый центр уведомлений — это не баннер: в нём висят
+            // виджеты, погода и биржа, и разбирать его как сообщение нельзя.
+            guard texts.count <= 12, let content = Self.content(from: texts) else { continue }
+            latestBanner = window
+            present(content)
         }
     }
 
     private func present(_ content: Content) {
-        // Один и тот же баннер система иногда пересоздаёт.
+        // Один и тот же баннер система пересоздаёт, а обход читает его
+        // каждые полсекунды заново — без отсева остров дёргался бы без конца.
         let key = "\(content.app)|\(content.sender)|\(content.body ?? "")"
-        guard !seen.contains(key) else { return }
-        seen.append(key)
-        if seen.count > 40 { seen.removeFirst() }
+        let now = Date()
+        if Self.isRepeat(shownAt: seen[key], now: now) { return }
+        seen[key] = now
+        if seen.count > 60 {
+            for (old, when) in seen where now.timeIntervalSince(when) > 120 { seen[old] = nil }
+        }
 
         settings.rememberNotificationApp(content.app)
         let rule = settings.notificationRule(for: content.app)

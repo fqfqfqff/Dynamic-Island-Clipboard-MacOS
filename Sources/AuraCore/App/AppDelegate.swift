@@ -203,6 +203,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             notchController?.close()
             return ok()
 
+        case .clearNotifications:
+            notifications.markAllRead()
+            return ok()
+
         case .showcase(let open):
             open ? showcase.show() : showcase.hide()
             return ok()
@@ -220,6 +224,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
             payload["снимки"] = screenshots.diagnostics
+            // Разговоры видно поимённо: разбиение по чатам иначе не проверить —
+            // снаружи виден только общий счётчик активностей.
+            payload["чаты"] = notifications.threads.reduce(into: [String: Int]()) {
+                $0[$1.key.replacingOccurrences(of: "\u{1}", with: " → ")] = $1.value
+            }
             // Расход памяти виден сразу: он растёт медленно и незаметно —
             // за ночь с витриной приложение раздувалось с 80 МБ до 286.
             payload["памятьМБ"] = Diagnostics.footprintMB

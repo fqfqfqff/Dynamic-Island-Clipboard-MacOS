@@ -68,15 +68,24 @@ final class SnapshotRendererTests: XCTestCase {
     /// не должны совпасть. Заодно ловится случай, когда анимация встала
     /// (`repeatForever` без `onAppear` молча ничего не делает).
     func testRimLightKeepsMoving() throws {
-        // Оба кадра — после того, как отыграла вспышка появления: иначе
-        // тест проходил бы и с неподвижной обводкой.
+        // Все кадры — после того, как отыграла вспышка появления: иначе тест
+        // проходил бы и с неподвижной обводкой.
+        //
+        // Кадров три, а не два: блик обходит круг за пару секунд, и половину
+        // круга он проводит в скрытой верхней части — там, где обводка уходит
+        // под кромку выреза. Два кадра могли случайно застать его в одном
+        // и том же невидимом месте.
         let scene = SnapshotScenes.notificationEvent()
-        let early = try render(scene, settling: 1.2)
-        let late = try render(scene, settling: 1.9)
+        let frames = try [1.3, 2.0, 2.6].map { try render(scene, settling: $0) }
+
+        let moved = [
+            biggestDifference(frames[0], frames[1]),
+            biggestDifference(frames[1], frames[2]),
+            biggestDifference(frames[0], frames[2]),
+        ].max() ?? 0
 
         XCTAssertGreaterThan(
-            biggestDifference(early, late), 0.05,
-            "подсветка неподвижна — свет по обводке не бежит"
+            moved, 0.05, "подсветка неподвижна — свет по обводке не бежит"
         )
     }
 

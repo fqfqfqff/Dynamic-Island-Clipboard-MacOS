@@ -75,6 +75,8 @@ enum ControlCommand {
     case status
     case showcase(Bool)
     case autostart(Bool)
+    /// Снять все непрочитанные уведомления разом.
+    case clearNotifications
 
     private struct Envelope: Decodable {
         let cmd: String
@@ -101,6 +103,8 @@ enum ControlCommand {
             return .ping
         case "status":
             return .status
+        case "notifications.clear":
+            return .clearNotifications
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":
@@ -150,6 +154,8 @@ enum ControlCommand {
             return .close
         case "status":
             return .status
+        case "notifications.clear":
+            return .clearNotifications
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":
