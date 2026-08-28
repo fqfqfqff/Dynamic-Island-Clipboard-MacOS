@@ -58,6 +58,21 @@ extension AnyTransition {
     /// из ниоткуда, а выезжают из-под кромки выреза вниз — и тем же путём
     /// уходят обратно вверх. Смещение одинаковое в обе стороны: уход должен
     /// читаться как обратная перемотка появления, а не как отдельный жест.
+    /// Карточка уведомления: выезжает из-под кромки выреза вниз и уходит
+    /// обратно вверх. Не всплывает и не масштабируется от центра — движение
+    /// читается как «выдвинулось оттуда», а не «появилось поверх».
+    static var auraEvent: AnyTransition {
+        .asymmetric(
+            insertion: .opacity
+                .combined(with: .offset(y: -22))
+                .combined(with: .scale(scale: 0.97, anchor: .top))
+                .animation(.spring(response: 0.42, dampingFraction: 0.78)),
+            removal: .opacity
+                .combined(with: .offset(y: -16))
+                .animation(.easeIn(duration: 0.2))
+        )
+    }
+
     static var auraCompact: AnyTransition {
         .asymmetric(
             insertion: .opacity

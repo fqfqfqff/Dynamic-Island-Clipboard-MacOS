@@ -92,6 +92,10 @@ final class SettingsStore: ObservableObject {
     @Published var notificationStyle: String { didSet { save(notificationStyle, "notificationStyle") } }
     /// Сколько секунд держать карточку. Ноль — до тех пор, пока не прочитают.
     @Published var notificationHold: Double { didSet { save(notificationHold, "notificationHold") } }
+    /// Через сколько минут значок непрочитанного гаснет сам. Ноль — никогда.
+    @Published var notificationBadgeTTL: Double { didSet { save(notificationBadgeTTL, "notificationBadgeTTL") } }
+    /// Насколько крупнее обычного показывать карточку уведомления.
+    @Published var notificationScale: Double { didSet { save(notificationScale, "notificationScale") } }
     /// Показывать сам текст сообщения. Выключено — видно только от кого и что
     /// за вложение: вырез видят все, кто смотрит на экран.
     @Published var notificationShowBody: Bool { didSet { save(notificationShowBody, "notificationShowBody") } }
@@ -226,6 +230,8 @@ final class SettingsStore: ObservableObject {
 
         notificationStyle = defaults.string(forKey: "notificationStyle") ?? "card"
         notificationHold = double("notificationHold", 5)
+        notificationBadgeTTL = double("notificationBadgeTTL", 10)
+        notificationScale = double("notificationScale", 1.25)
         notificationShowBody = bool("notificationShowBody", true)
         notificationTintFromIcon = bool("notificationTintFromIcon", true)
         notificationBadgeWhenAppOpen = bool("notificationBadgeWhenAppOpen", true)

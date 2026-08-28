@@ -82,9 +82,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
         // Пришло уведомление — вырез вырастает карточкой. Значок с числом
         // непрочитанных ставит сам провайдер и держит до прочтения.
-        notifications.onMessage = { [weak self] _ in
+        notifications.onMessage = { [weak self] message in
             guard let self, self.settings.notificationStyle == "card" else { return }
-            self.notchController?.presentEvent(hold: self.settings.notificationHold)
+            // Код подтверждения держим дольше: его читают и набирают руками,
+            // и пяти секунд на это не хватает.
+            let hold = self.settings.notificationHold + (message.code == nil ? 0 : 4)
+            self.notchController?.presentEvent(hold: hold)
         }
 
         // Выдернули наушники — музыка замолкает, а не переезжает в динамики.

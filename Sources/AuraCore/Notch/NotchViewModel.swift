@@ -133,9 +133,10 @@ final class NotchViewModel: ObservableObject {
     /// Это не панель: вырез вырастает ровно настолько, чтобы поместились
     /// иконка приложения, две строки текста и значок типа сообщения.
     var eventSize: CGSize {
-        CGSize(
-            width: max(360, geometry.notchSize.width + 150),
-            height: geometry.menuBarHeight + 56
+        let scale = CGFloat(settings.notificationScale)
+        return CGSize(
+            width: max(360 * scale, geometry.notchSize.width + 150 * scale),
+            height: geometry.menuBarHeight + 56 * scale
         )
     }
 

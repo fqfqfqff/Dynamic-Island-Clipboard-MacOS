@@ -113,7 +113,76 @@ final class NotificationIconTests: XCTestCase {
         XCTAssertFalse(found.isEmpty, "не нашлось ни одного установленного приложения")
     }
 
-    func testUnknownAppHasNoIcon() {
-        XCTAssertNil(NotificationMirrorProvider.icon(named: "такого приложения нет нигде"))
+    /// Незнакомому приложению рисуется свой значок из первой буквы — но он
+    /// именно нарисованный, а не чужая иконка, подобранная нестрогим поиском.
+    /// Среди запущенных всегда есть фоновые службы с пустым или странным
+    /// именем, и раньше первая из них и становилась «иконкой» уведомления.
+    func testUnknownAppGetsADrawnIconAndNotSomebodyElses() {
+        let icon = NotificationMirrorProvider.icon(named: "такого приложения нет нигде")
+        XCTAssertEqual(icon?.size, CGSize(width: 64, height: 64))
+    }
+}
+
+/// Разбиение по разговорам и снятие прочитанного.
+@MainActor
+final class NotificationThreadTests: XCTestCase {
+    private func makeProvider() -> NotificationMirrorProvider {
+        let settings = SettingsStore(defaults: TestDefaults.make())
+        return NotificationMirrorProvider(center: ActivityCenter(), settings: settings)
+    }
+
+    /// Пятеро написали — это пять дел, а не «5» на значке мессенджера.
+    func testDifferentPeopleAreDifferentThreads() {
+        let mother = NotificationMirrorProvider.threadKey(app: "Telegram", sender: "Мама")
+        let boss = NotificationMirrorProvider.threadKey(app: "Telegram", sender: "Шеф")
+
+        XCTAssertNotEqual(mother, boss)
+        XCTAssertEqual(NotificationMirrorProvider.app(ofThread: mother), "Telegram")
+        XCTAssertEqual(NotificationMirrorProvider.sender(ofThread: boss), "Шеф")
+    }
+
+    /// Имя и собеседник разделяются служебным символом: в именах людей
+    /// встречается что угодно, включая точки, тире и вертикальную черту.
+    func testSeparatorSurvivesAwkwardNames() {
+        let key = NotificationMirrorProvider.threadKey(
+            app: "Mail", sender: "ООО «Ромашка» | отдел продаж"
+        )
+        XCTAssertEqual(NotificationMirrorProvider.app(ofThread: key), "Mail")
+        XCTAssertEqual(
+            NotificationMirrorProvider.sender(ofThread: key),
+            "ООО «Ромашка» | отдел продаж"
+        )
+    }
+
+    func testActivityIDCarriesBothAppAndThread() {
+        let key = NotificationMirrorProvider.threadKey(app: "Telegram", sender: "Мама")
+        let id = "notification.\(key)"
+
+        XCTAssertEqual(NotificationMirrorProvider.appName(fromActivityID: id), "Telegram")
+        XCTAssertEqual(NotificationMirrorProvider.thread(fromActivityID: id), key)
+        XCTAssertNil(NotificationMirrorProvider.thread(fromActivityID: "media.nowplaying"))
+    }
+}
+
+/// Значок приложения должен быть у каждого уведомления.
+@MainActor
+final class NotificationMonogramTests: XCTestCase {
+    /// Уведомления с айфона приходят от приложений, которых на Маке нет
+    /// и быть не может. Пустое место в карточке — потеря: по значку
+    /// и узнают, откуда пришло.
+    func testUnknownAppStillGetsAnIcon() {
+        let icon = NotificationMirrorProvider.icon(named: "Такого приложения нет нигде")
+        XCTAssertNotNil(icon)
+        XCTAssertEqual(icon?.size, CGSize(width: 64, height: 64))
+    }
+
+    func testSameNameKeepsTheSameLook() {
+        let first = NotificationMirrorProvider.monogram(for: "Госуслуги")
+        let second = NotificationMirrorProvider.monogram(for: "Госуслуги")
+        XCTAssertTrue(first === second, "значок должен быть один и тот же, а не рисоваться заново")
+    }
+
+    func testEmptyNameHasNothingToDraw() {
+        XCTAssertNil(NotificationMirrorProvider.monogram(for: "   "))
     }
 }

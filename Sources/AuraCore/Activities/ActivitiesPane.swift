@@ -132,8 +132,10 @@ extension ActivitiesPane {
     /// и провайдер не поставит своё обратно: загрузка, которую свернули
     /// руками, возвращалась на следующем же опросе.
     private func dismiss(_ activity: Activity) {
-        if let app = NotificationMirrorProvider.appName(fromActivityID: activity.id) {
-            notifications.markRead(app: app)
+        // Прочитан один разговор, а не всё приложение: у каждого чата
+        // своя строка, и убирается она отдельно.
+        if let thread = NotificationMirrorProvider.thread(fromActivityID: activity.id) {
+            notifications.markThreadRead(thread)
         } else {
             center.dismiss(id: activity.id)
         }

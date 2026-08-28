@@ -213,6 +213,7 @@ public enum SnapshotScenes {
             expandedWithoutMedia(),
             peekHint(),
             notificationBadge(),
+            notificationThreads(),
             longNames(),
             showcaseColumns(),
             showcaseCentered(),
@@ -358,6 +359,36 @@ public enum SnapshotScenes {
         }
     }
 
+    /// Несколько чатов одного мессенджера: у каждого своя строка.
+    /// Пятеро написали — это пять дел, а не «5» на значке приложения.
+    static func notificationThreads() -> SnapshotScene {
+        scene("11-notification-threads", size: expandedCanvas) { environment in
+            let icon = appIcon()
+            let chats: [(String, String, String)] = [
+                ("Мама", "Позвони, как освободишься", "2"),
+                ("Рабочий чат", "Голосовое сообщение", "5"),
+                ("Alex Rivera", "Кружок", "1"),
+            ]
+            for (sender, text, count) in chats {
+                environment.activities.upsert(
+                    Activity(
+                        id: "notification." + NotificationMirrorProvider.threadKey(
+                            app: "Telegram", sender: sender
+                        ),
+                        title: sender,
+                        subtitle: text,
+                        symbol: "message.fill",
+                        tint: .white,
+                        artwork: icon,
+                        priority: .important,
+                        indicator: .text(count)
+                    )
+                )
+            }
+            environment.viewModel.state = .expanded
+        }
+    }
+
     static func notificationEvent() -> SnapshotScene {
         scene("06-notification", size: compactCanvas) { environment in
             let icon = appIcon()
@@ -376,7 +407,9 @@ public enum SnapshotScenes {
                     receivedAt: .now
                 )
             )
-            environment.notifications.injectUnread(app: "Telegram", count: 3)
+            environment.notifications.injectUnread(
+                app: "Telegram", count: 3, sender: "Alex Rivera"
+            )
             environment.viewModel.state = .event
         }
     }

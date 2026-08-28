@@ -18,19 +18,23 @@ struct EventCard: View {
 
     private var design: Font.Design { AuraTheme.design(settings.fontDesign) }
 
+    /// Насколько крупнее обычного. Уведомление читают боковым зрением
+    /// и мельком — размер здесь важнее плотности.
+    private var scale: CGFloat { CGFloat(settings.notificationScale) }
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 11 * scale) {
             icon
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(message.sender)
-                    .font(.system(size: 13, weight: .semibold, design: design))
+                    .font(.system(size: 13 * scale, weight: .semibold, design: design))
                     .foregroundStyle(.white)
                     .lineLimit(1)
 
                 Text(secondLine)
-                    .font(.system(size: 11, weight: .regular, design: design))
-                    .foregroundStyle(.white.opacity(0.62))
+                    .font(.system(size: 11 * scale, weight: .regular, design: design))
+                    .foregroundStyle(.white.opacity(0.66))
                     .lineLimit(1)
             }
 
@@ -43,11 +47,11 @@ struct EventCard: View {
             if let code = message.code, let onPasteCode {
                 Button { onPasteCode(code) } label: {
                     Text(code)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 13 * scale, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.black.opacity(0.85))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 9 * scale)
+                        .padding(.vertical, 4 * scale)
                         .background(Capsule().fill(.white))
                 }
                 .buttonStyle(PressableButtonStyle())
@@ -57,9 +61,9 @@ struct EventCard: View {
             if let onReply {
                 Button(action: onReply) {
                     Image(systemName: "arrowshape.turn.up.left.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 11 * scale, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.85))
-                        .frame(width: 26, height: 26)
+                        .frame(width: 26 * scale, height: 26 * scale)
                         .background(Circle().fill(Color.white.opacity(0.14)))
                 }
                 .buttonStyle(PressableButtonStyle())
@@ -68,7 +72,7 @@ struct EventCard: View {
 
             counter
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 15 * scale)
     }
 
     /// Вторая строка: что пришло, и сколько ещё ждёт.
@@ -77,12 +81,7 @@ struct EventCard: View {
     /// показывать нужно последнее, но так, чтобы было видно, что оно
     /// не единственное.
     private var secondLine: String {
-        let body = message.body ?? message.kind.wording
-        guard unread > 1 else { return body }
-        // Число внутри строки, а не приклеено снаружи: по-русски «и ещё 2»,
-        // по-английски «2 more» — порядок слов разный, склейкой его не взять.
-        let more = String(format: t("ui.7a3d1b60", "и ещё %d"), unread - 1)
-        return body + " · " + more
+        message.body ?? message.kind.wording
     }
 
     /// Иконка самого приложения: по ней сразу видно, куда идти отвечать.
@@ -95,36 +94,42 @@ struct EventCard: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } else {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: 9 * scale, style: .continuous)
                         .fill(.white.opacity(0.12))
                         .overlay {
                             Image(systemName: message.kind.symbol)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 14 * scale, weight: .semibold))
                                 .foregroundStyle(.white)
                         }
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: 32 * scale, height: 32 * scale)
 
             // Уголок с типом: для текста его не показываем — облачко рядом
             // с иконкой мессенджера ничего не добавляет.
             if message.kind != .text {
                 Image(systemName: message.kind.symbol)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 9 * scale, weight: .bold))
                     .foregroundStyle(.white)
-                    .padding(3)
+                    .padding(3 * scale)
                     .background(Circle().fill(.black.opacity(0.75)))
                     .offset(x: 4, y: 3)
             }
         }
     }
 
-    /// Сколько всего непрочитанного от этого приложения.
+    /// Сколько непрочитанного ждёт в этом разговоре.
+    ///
+    /// Единица не показывается: одно сообщение — это и так одно сообщение,
+    /// а лишняя цифра рядом с текстом только отвлекает.
+    @ViewBuilder
     private var counter: some View {
-        Text("\(unread)")
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white)
-            .monospacedDigit()
+        if unread > 1 {
+            Text("\(unread)")
+                .font(.system(size: 14 * scale, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
     }
 }
 

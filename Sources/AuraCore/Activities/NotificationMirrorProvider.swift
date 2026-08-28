@@ -84,6 +84,12 @@ final class NotificationMirrorProvider: ObservableObject {
     @Published private(set) var latest: Message?
     /// Сколько непрочитанного накопилось по каждому приложению.
     @Published private(set) var unread: [String: Int] = [:]
+    /// Сколько непрочитанного в каждом разговоре: «приложение|собеседник».
+    ///
+    /// Пять сообщений от пятерых — это пять разных дел, а не «5» на значке
+    /// мессенджера. В раскрытой панели у каждого своя строка, и прочитать
+    /// можно по одному.
+    @Published private(set) var threads: [String: Int] = [:]
 
     /// Пришло новое уведомление — острову пора вырасти.
     var onMessage: ((Message) -> Void)?
@@ -97,6 +103,10 @@ final class NotificationMirrorProvider: ObservableObject {
     private var latestBanner: AXUIElement?
     /// Имя приложения из баннера → его идентификатор.
     private var bundleIDs: [String: String] = [:]
+    /// Когда в приложении последний раз появлялось непрочитанное.
+    private var firstUnreadAt: [String: Date] = [:]
+    /// Таймер гашения. Заводится, только когда есть что гасить.
+    private var expiryTimer: Timer?
 
     private let bannerHost = "com.apple.notificationcenterui"
 
@@ -112,8 +122,11 @@ final class NotificationMirrorProvider: ObservableObject {
         latest = message
     }
 
-    func injectUnread(app: String, count: Int) {
+    func injectUnread(app: String, count: Int, sender: String? = nil) {
         unread[app] = count
+        if let sender {
+            threads[Self.threadKey(app: app, sender: sender)] = count
+        }
     }
 
     func start() {
@@ -185,10 +198,7 @@ final class NotificationMirrorProvider: ObservableObject {
         seen.removeAll()
 
         NSWorkspace.shared.notificationCenter.removeObserver(self)
-        for app in unread.keys { center.remove(id: Self.activityID(for: app)) }
-        unread.removeAll()
-        bundleIDs.removeAll()
-        latest = nil
+        markAllRead()
     }
 
     // MARK: - Прочитано
@@ -212,11 +222,94 @@ final class NotificationMirrorProvider: ObservableObject {
 
     /// Убирает значок приложения из выреза.
     func markRead(app: String) {
-        guard unread[app] != nil else { return }
+        guard unread[app] != nil || threads.keys.contains(where: { Self.app(ofThread: $0) == app })
+        else { return }
+
         unread[app] = nil
         bundleIDs[app] = nil
-        center.remove(id: Self.activityID(for: app))
+        firstUnreadAt[app] = nil
+        for thread in threads.keys where Self.app(ofThread: thread) == app {
+            threads[thread] = nil
+            center.remove(id: Self.activityID(forThread: thread))
+        }
         if latest?.app == app { latest = nil }
+    }
+
+    /// Гасит значки, которые провисели дольше отведённого.
+    ///
+    /// Уведомление, на которое не отреагировали за десять минут, — уже не
+    /// новость. Держать его вечно значит превратить остров в свалку, из
+    /// которой значки убирают руками.
+    private func scheduleExpiry() {
+        guard settings.notificationBadgeTTL > 0 else { return }
+        guard expiryTimer == nil else { return }
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.expireOld() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        expiryTimer = timer
+    }
+
+    private func expireOld() {
+        let ttl = settings.notificationBadgeTTL * 60
+        if ttl > 0 {
+            let now = Date()
+            for (app, since) in firstUnreadAt where now.timeIntervalSince(since) >= ttl {
+                markRead(app: app)
+            }
+        }
+
+        // Гасить больше нечего — таймеру тоже незачем работать.
+        if firstUnreadAt.isEmpty {
+            expiryTimer?.invalidate()
+            expiryTimer = nil
+        }
+    }
+
+    /// Снимает непрочитанное с приложения, в котором человек сидит.
+    ///
+    /// Событие «переключились на приложение» приходит только при переключении.
+    /// Если сообщение пришло в Telegram, который и так впереди, значок не снял
+    /// бы никто — он висел бы до перезапуска. Поэтому спустя несколько секунд
+    /// смотрим ещё раз: приложение всё ещё впереди — значит, прочитали.
+    ///
+    /// Задержка нужна, чтобы значок успели увидеть: проверяют уведомления,
+    /// отправляя сообщение себе.
+    private func clearIfFrontmost() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self,
+                      let front = NSWorkspace.shared.frontmostApplication else { return }
+
+                let name = self.unread.keys.first { candidate in
+                    if let bundleID = self.bundleIDs[candidate],
+                       bundleID == front.bundleIdentifier { return true }
+                    return candidate.caseInsensitiveCompare(front.localizedName ?? "")
+                        == .orderedSame
+                }
+                guard let name else { return }
+                self.markRead(app: name)
+            }
+        }
+    }
+
+    /// Прочитан один разговор, а не всё приложение: остальные чаты остаются.
+    func markThreadRead(_ thread: String) {
+        guard let count = threads[thread] else { return }
+        threads[thread] = nil
+        center.remove(id: Self.activityID(forThread: thread))
+
+        let app = Self.app(ofThread: thread)
+        let left = max(0, (unread[app] ?? count) - count)
+        if left == 0 {
+            unread[app] = nil
+            bundleIDs[app] = nil
+            firstUnreadAt[app] = nil
+            if latest?.app == app { latest = nil }
+        } else {
+            unread[app] = left
+        }
     }
 
     /// Имя приложения по идентификатору активности — по нему строка
@@ -224,18 +317,48 @@ final class NotificationMirrorProvider: ObservableObject {
     static func appName(fromActivityID id: String) -> String? {
         let prefix = "notification."
         guard id.hasPrefix(prefix) else { return nil }
+        return app(ofThread: String(id.dropFirst(prefix.count)))
+    }
+
+    /// Разговор по идентификатору активности — чтобы строка в панели умела
+    /// пометить прочитанным именно свой чат.
+    static func thread(fromActivityID id: String) -> String? {
+        let prefix = "notification."
+        guard id.hasPrefix(prefix) else { return nil }
         return String(id.dropFirst(prefix.count))
     }
 
     func markAllRead() {
-        for app in unread.keys { center.remove(id: Self.activityID(for: app)) }
+        for thread in threads.keys { center.remove(id: Self.activityID(forThread: thread)) }
+        threads.removeAll()
         unread.removeAll()
         bundleIDs.removeAll()
+        firstUnreadAt.removeAll()
+        expiryTimer?.invalidate()
+        expiryTimer = nil
         latest = nil
     }
 
-    private static func activityID(for app: String) -> String {
-        "notification.\(app)"
+    // MARK: - Ключи
+
+    /// Разделитель, которого не бывает в именах приложений и людей.
+    private static let separator = "\u{1}"
+
+    static func threadKey(app: String, sender: String) -> String {
+        "\(app)\(separator)\(sender)"
+    }
+
+    static func app(ofThread thread: String) -> String {
+        thread.components(separatedBy: separator).first ?? thread
+    }
+
+    static func sender(ofThread thread: String) -> String {
+        let parts = thread.components(separatedBy: separator)
+        return parts.count > 1 ? parts[1] : ""
+    }
+
+    private static func activityID(forThread thread: String) -> String {
+        "notification.\(thread)"
     }
 
     // MARK: - Разбор баннера
@@ -358,11 +481,21 @@ final class NotificationMirrorProvider: ObservableObject {
         unread[content.app, default: 0] += 1
         bundleIDs[content.app] = application?.bundleIdentifier
 
+        let thread = Self.threadKey(app: content.app, sender: content.sender)
+        threads[thread, default: 0] += 1
+        if firstUnreadAt[content.app] == nil { firstUnreadAt[content.app] = Date() }
+        scheduleExpiry()
+
+        // Человек мог уже прочитать всё в самом приложении: он в нём и сидит,
+        // а событие «переключились на приложение» больше не придёт — оно
+        // и так впереди. Без этой проверки значок висел бы до перезапуска.
+        clearIfFrontmost()
+
         // Значок в компактном виде: иконка слева, счётчик справа. Живёт,
         // пока пользователь не откроет приложение.
         center.upsert(
             Activity(
-                id: Self.activityID(for: content.app),
+                id: Self.activityID(forThread: thread),
                 title: message.sender,
                 subtitle: message.body ?? kind.wording,
                 symbol: kind.symbol,
@@ -372,7 +505,11 @@ final class NotificationMirrorProvider: ObservableObject {
                 tint: .white,
                 artwork: icon,
                 priority: .important,
-                indicator: .text("\(unread[content.app] ?? 1)")
+                // Единицу не рисуем: одно сообщение — это и так одно
+                // сообщение, а цифра рядом с текстом только отвлекает.
+                indicator: (threads[thread] ?? 1) > 1
+                    ? .text("\(threads[thread] ?? 1)")
+                    : .none
             )
         )
 
@@ -496,9 +633,56 @@ final class NotificationMirrorProvider: ObservableObject {
     /// потом сдаёмся.
     static func icon(named name: String) -> NSImage? {
         if let running = application(named: name) { return running.icon }
-        guard let url = installedApplication(named: name) else { return nil }
-        return NSWorkspace.shared.icon(forFile: url.path)
+        if let url = installedApplication(named: name) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        // Уведомления с айфона приходят от приложений, которых на Маке нет
+        // и быть не может. Пустое место в карточке — потеря: по значку
+        // и узнают, откуда пришло. Рисуем свой: буква и цвет от имени.
+        return monogram(for: name)
     }
+
+    /// Значок из первой буквы имени. Цвет берётся из самого имени, поэтому
+    /// одно и то же приложение всегда одного цвета, а разные — разного.
+    static func monogram(for name: String) -> NSImage? {
+        let letter = name.trimmingCharacters(in: .whitespaces).first.map(String.init)?.uppercased()
+        guard let letter, !letter.isEmpty else { return nil }
+
+        if let cached = monograms[name] { return cached }
+
+        let side: CGFloat = 64
+        let image = NSImage(size: CGSize(width: side, height: side))
+        image.lockFocus()
+
+        let hue = CGFloat(abs(name.hashValue % 360)) / 360
+        let background = NSColor(hue: hue, saturation: 0.55, brightness: 0.72, alpha: 1)
+        let path = NSBezierPath(
+            roundedRect: NSRect(x: 0, y: 0, width: side, height: side),
+            xRadius: side * 0.23, yRadius: side * 0.23
+        )
+        background.setFill()
+        path.fill()
+
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: side * 0.5, weight: .medium),
+            .foregroundColor: NSColor.white,
+            .paragraphStyle: style,
+        ]
+        let text = letter as NSString
+        let height = text.size(withAttributes: attributes).height
+        text.draw(
+            in: NSRect(x: 0, y: (side - height) / 2, width: side, height: height),
+            withAttributes: attributes
+        )
+
+        image.unlockFocus()
+        monograms[name] = image
+        return image
+    }
+
+    private nonisolated(unsafe) static var monograms: [String: NSImage] = [:]
 
     /// Установленные приложения: имя → бандл.
     ///
@@ -513,16 +697,33 @@ final class NotificationMirrorProvider: ObservableObject {
 
         if let exact = installed[target] { return exact }
         // Нестрого: «WhatsApp Messenger» на телефоне и «WhatsApp» на Маке.
-        return installed.first { $0.key.hasPrefix(target) || target.hasPrefix($0.key) }?.value
+        // Короткие имена сюда не пускаем: совпадение по трём буквам —
+        // это уже не то же приложение, а случайность.
+        guard target.count >= 4 else { return nil }
+        return installed.first { key, _ in
+            key.count >= 4 && (key.hasPrefix(target) || target.hasPrefix(key))
+        }?.value
     }
 
     private static func scanApplications() -> [String: URL] {
-        let folders = [
+        let roots = [
             "/Applications",
             "/Applications/Utilities",
             "/System/Applications",
+            "/System/Applications/Utilities",
             NSHomeDirectory() + "/Applications",
         ].map { URL(fileURLWithPath: $0) }
+
+        // Заглядываем и на уровень внутрь: Setapp, Adobe и наборы утилит
+        // держат приложения в своей папке, и снаружи их не видно.
+        var folders = roots
+        for root in roots {
+            let items = (try? FileManager.default.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            folders += items.filter { $0.pathExtension != "app" }
+        }
 
         var result: [String: URL] = [:]
         for folder in folders {
@@ -531,7 +732,12 @@ final class NotificationMirrorProvider: ObservableObject {
             )) ?? []
 
             for url in items where url.pathExtension == "app" {
+                // Имя в баннере — то, которое видит человек, а оно переведено:
+                // на русской системе «Сообщения», а в Info.plist «Messages».
+                // `displayName(atPath:)` отдаёт именно видимое имя.
                 let names = [
+                    FileManager.default.displayName(atPath: url.path),
+                    Bundle(url: url)?.localizedInfoDictionary?["CFBundleDisplayName"] as? String,
                     Bundle(url: url)?.displayName,
                     url.deletingPathExtension().lastPathComponent,
                 ].compactMap { $0 }
@@ -561,15 +767,23 @@ final class NotificationMirrorProvider: ObservableObject {
                 let names = [
                     application.localizedName,
                     application.bundleURL.flatMap { Bundle(url: $0)?.displayName },
-                ].compactMap { $0.map(normalized) }
+                ].compactMap { $0.map(normalized) }.filter { !$0.isEmpty }
                 return names.contains(where: matches)
             }
         }
 
+        // Нестрогие правила — только для имён подлиннее. Пустая строка
+        // содержится в любой, а среди запущенных всегда есть фоновые службы
+        // с именем из одних символов: без этого условия иконку получал
+        // первый попавшийся системный процесс, и она была не та.
+        func loose(_ candidate: String) -> Bool {
+            candidate.count >= 4 && target.count >= 4
+        }
+
         return find { $0 == target }
-            ?? find { $0.hasPrefix(target) }
-            ?? find { target.hasPrefix($0) }
-            ?? find { $0.contains(target) || target.contains($0) }
+            ?? find { loose($0) && $0.hasPrefix(target) }
+            ?? find { loose($0) && target.hasPrefix($0) }
+            ?? find { loose($0) && ($0.contains(target) || target.contains($0)) }
     }
 
     /// Имя без регистра, пробелов и служебных знаков: «Telegram Desktop»

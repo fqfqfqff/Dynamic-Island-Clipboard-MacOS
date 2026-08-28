@@ -364,7 +364,11 @@ struct NotchRootView: View {
             if isEvent, let message = notifications.latest {
                 EventCard(
                     message: message,
-                    unread: notifications.unread[message.app] ?? 1,
+                    unread: notifications.threads[
+                        NotificationMirrorProvider.threadKey(
+                            app: message.app, sender: message.sender
+                        )
+                    ] ?? 1,
                     onReply: notifications.canReply ? { notifications.reply() } : nil,
                     onPasteCode: { code in
                         NSPasteboard.general.clearContents()
@@ -376,7 +380,7 @@ struct NotchRootView: View {
                 )
                     .frame(height: viewModel.eventSize.height - viewModel.geometry.menuBarHeight - 12)
                     .padding(.top, viewModel.geometry.menuBarHeight + 6)
-                    .transition(.auraCompact)
+                    .transition(.auraEvent)
             }
 
             // Содержимое собирается заранее — как только курсор подошёл
