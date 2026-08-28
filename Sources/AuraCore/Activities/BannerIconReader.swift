@@ -62,8 +62,12 @@ final class BannerIconReader {
         }
         pending.insert(app)
 
+        // Немного внутрь: в поле значка входит и отступ вокруг него,
+        // а с тёмной рамкой по краям иконка выглядит мельче, чем есть.
+        let tight = frame.insetBy(dx: frame.width * 0.07, dy: frame.height * 0.07)
+
         Task { [weak self] in
-            let image = await Self.capture(frame: frame)
+            let image = await Self.capture(frame: tight)
             await MainActor.run {
                 guard let self else { return }
                 self.pending.remove(app)

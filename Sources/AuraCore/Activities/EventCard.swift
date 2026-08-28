@@ -171,23 +171,14 @@ struct EventRim: View {
                     lineWidth: 1.2
                 )
 
-            // Блик бежит по самой линии: вращается сам градиент, а не фигура, —
-            // иначе вместе со светом поехал бы и контур выреза.
-            shape
-                .stroke(
-                    AngularGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .white.opacity(0.85), location: 0.05),
-                            .init(color: vivid, location: 0.1),
-                            .init(color: .clear, location: 0.22),
-                            .init(color: .clear, location: 1),
-                        ]),
-                        center: .center,
-                        angle: .degrees(sweep)
-                    ),
-                    lineWidth: 1.4
-                )
+            // Блик бежит по самой линии — отрезком контура, а не поворотом
+            // градиента. Разница видна сразу: угловой градиент крутится
+            // с постоянной угловой скоростью, а карточка вытянутая — по
+            // длинным сторонам свет летел, по коротким полз. Отрезок контура
+            // идёт с постоянной скоростью по длине пути, как и должен.
+            comet(length: 0.16, opacity: 0.28, width: 2.6)
+            comet(length: 0.08, opacity: 0.75, width: 1.6)
+            comet(length: 0.035, opacity: 1, width: 1.3, white: true)
 
             // Одно мягкое свечение — только чтобы линия не выглядела
             // приклеенной. Оно едва заметно и сразу за линией затухает.
@@ -200,11 +191,33 @@ struct EventRim: View {
             // Скорость общая с остальными анимациями: в «Спокойном» наборе
             // всё замедлено в полтора раза, и блик не должен быть
             // единственным, что бежит по-прежнему быстро.
-            let round = 2.6 * max(0.5, settings.animationSpeed)
+            let round = 3.4 * max(0.5, settings.animationSpeed)
             withAnimation(.linear(duration: round).repeatForever(autoreverses: false)) {
                 sweep = 360
             }
             withAnimation(.easeOut(duration: 0.9)) { settled = true }
+        }
+    }
+
+    /// Один слой блика: отрезок контура, идущий за головой кометы.
+    ///
+    /// Хвост собирается из трёх таких — длинного и тусклого, среднего
+    /// и короткой белой головы. Так у света есть направление, а переход
+    /// в темноту не виден ступенькой.
+    @ViewBuilder
+    private func comet(
+        length: CGFloat, opacity: Double, width: CGFloat, white: Bool = false
+    ) -> some View {
+        let color = (white ? Color.white : vivid).opacity(opacity)
+        let head = sweep / 360
+        let tail = head - length
+
+        // `trim` не умеет через ноль, поэтому на стыке рисуем двумя кусками.
+        shape.trim(from: max(0, tail), to: head)
+            .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round))
+        if tail < 0 {
+            shape.trim(from: 1 + tail, to: 1)
+                .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round))
         }
     }
 

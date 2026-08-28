@@ -53,6 +53,15 @@ final class FullScreenWatcher {
         spaceObserver = nil
     }
 
+    /// Сколько признак должен продержаться, чтобы ему поверить.
+    ///
+    /// При переключении рабочих столов тремя пальцами система на доли секунды
+    /// прячет строку меню — и остров исчезал прямо посреди жеста вместе
+    /// с уведомлением, которое в нём висело. Возврат наоборот мгновенный:
+    /// вышли из полноэкранного — показываем сразу.
+    static let patience: TimeInterval = 0.6
+    private var hiddenSince: Date?
+
     /// Дешёвая проверка — вызывается ещё и на движение мыши.
     func check() {
         guard let screen = screenProvider() else { return }
@@ -60,7 +69,25 @@ final class FullScreenWatcher {
         let menuBarHidden = screen.visibleFrame.maxY >= screen.frame.maxY - 1
         let next = menuBarHidden || deepResult
 
-        guard next != isFullScreen else { return }
+        guard next != isFullScreen else {
+            hiddenSince = nil
+            return
+        }
+
+        if next {
+            let since = hiddenSince ?? Date()
+            hiddenSince = since
+
+            guard Date().timeIntervalSince(since) >= Self.patience else {
+                // Признак только появился — перепроверим, когда выдержка выйдет.
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.patience) { [weak self] in
+                    MainActor.assumeIsolated { self?.check() }
+                }
+                return
+            }
+        }
+
+        hiddenSince = nil
         isFullScreen = next
         onChange?(next)
     }

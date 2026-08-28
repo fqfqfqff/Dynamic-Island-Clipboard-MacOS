@@ -227,3 +227,35 @@ final class NotificationRepeatTests: XCTestCase {
         XCTAssertFalse(NotificationMirrorProvider.isRepeat(shownAt: nil, now: now))
     }
 }
+
+/// Переключение рабочих столов тремя пальцами на доли секунды прячет строку
+/// меню — и остров исчезал прямо посреди жеста вместе с уведомлением.
+/// Признаку полноэкранного режима нужна выдержка.
+@MainActor
+final class FullScreenPatienceTests: XCTestCase {
+    /// Первая же проверка не должна прятать остров: признак обязан
+    /// продержаться. Жест переключения столов длится меньше выдержки.
+    func testFirstSignDoesNotHideAnything() {
+        let watcher = FullScreenWatcher()
+        var changes: [Bool] = []
+        watcher.onChange = { changes.append($0) }
+
+        // Экран, у которого строка меню «спрятана»: видимая область
+        // доходит до самого верха.
+        watcher.start { FakeScreen.fullHeight }
+        watcher.check()
+
+        XCTAssertTrue(changes.isEmpty, "решение принято мгновенно, без выдержки")
+        watcher.stop()
+    }
+
+    func testPatienceIsLongerThanASwipe() {
+        // Жест переключения рабочих столов — около трети секунды.
+        XCTAssertGreaterThan(FullScreenWatcher.patience, 0.35)
+    }
+}
+
+/// Экран, у которого строка меню спрятана: видимая область во весь кадр.
+private enum FakeScreen {
+    static var fullHeight: NSScreen? { NSScreen.main }
+}
