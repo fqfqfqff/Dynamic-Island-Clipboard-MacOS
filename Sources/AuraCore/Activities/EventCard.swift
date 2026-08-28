@@ -137,27 +137,94 @@ struct EventCard: View {
 ///
 /// Цвет берётся с иконки — у Telegram он голубой, у почты синий, — и это
 /// единственное, что отличает одно уведомление от другого боковым зрением.
+/// Поэтому она должна быть заметна: тонкая линия в один пиксель на чёрном
+/// теряется, особенно если цвет приложения тёмный.
+///
+/// Свет по ней бежит по кругу — так карточка читается как живая, а не
+/// как нарисованная рамка. Живёт это ровно столько, сколько висит само
+/// уведомление: несколько секунд.
 struct EventRim: View {
     let shape: NotchShape
     let tint: Color
 
+    @EnvironmentObject private var settings: SettingsStore
+
+    /// Куда сейчас смотрит бегущий блик.
+    @State private var sweep: Double = 0
+    /// Вспышка в первый момент: карточка приходит ярче, чем живёт потом.
+    @State private var settled = false
+
     var body: some View {
         ZStack {
+            // Ровная обводка — основа, она есть всегда.
             shape
                 .stroke(
                     LinearGradient(
-                        colors: [tint.opacity(0.9), tint.opacity(0.25)],
+                        colors: [vivid, vivid.opacity(0.45)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
-                    lineWidth: 1.2
+                    lineWidth: 1.6
                 )
-            // Мягкое свечение наружу: обводка в один пиксель на чёрном фоне
-            // теряется, а с ним карточка читается как подсвеченная.
+
+            // Бегущий блик: вращается сам градиент, а не фигура, — иначе
+            // вместе со светом поехал бы и контур выреза.
             shape
-                .stroke(tint.opacity(0.5), lineWidth: 2.5)
-                .blur(radius: 6)
+                .stroke(
+                    AngularGradient(
+                        gradient: Gradient(stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .white.opacity(0.9), location: 0.06),
+                            .init(color: vivid, location: 0.12),
+                            .init(color: .clear, location: 0.28),
+                            .init(color: .clear, location: 1),
+                        ]),
+                        center: .center,
+                        angle: .degrees(sweep)
+                    ),
+                    lineWidth: 2.2
+                )
+                .blur(radius: 1.2)
+
+            // Свечение наружу в два слоя: ближний даёт цвет, дальний —
+            // ощущение подсветки вокруг выреза.
+            shape
+                .stroke(vivid.opacity(settled ? 0.65 : 0.9), lineWidth: 3)
+                .blur(radius: 7)
+            shape
+                .stroke(vivid.opacity(settled ? 0.3 : 0.55), lineWidth: 7)
+                .blur(radius: 16)
         }
         .allowsHitTesting(false)
+        .onAppear {
+            // Скорость общая с остальными анимациями: в «Спокойном» наборе
+            // всё замедлено в полтора раза, и блик не должен быть
+            // единственным, что бежит по-прежнему быстро.
+            let round = 2.6 * max(0.5, settings.animationSpeed)
+            withAnimation(.linear(duration: round).repeatForever(autoreverses: false)) {
+                sweep = 360
+            }
+            withAnimation(.easeOut(duration: 0.9)) { settled = true }
+        }
+    }
+
+    /// Цвет иконки, поднятый до свечения.
+    ///
+    /// Акцент снимается с самой иконки, и у тёмных он выходит почти чёрным —
+    /// такая обводка не видна вовсе. Тон сохраняем, яркость и насыщенность
+    /// поднимаем до различимых.
+    private var vivid: Color {
+        guard let base = NSColor(tint).usingColorSpace(.sRGB) else { return tint }
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        base.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+        return Color(
+            hue: Double(hue),
+            saturation: Double(min(1, max(saturation, 0.55))),
+            brightness: Double(min(1, max(brightness, 0.9)))
+        )
     }
 }

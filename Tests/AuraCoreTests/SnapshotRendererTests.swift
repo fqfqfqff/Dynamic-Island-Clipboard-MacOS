@@ -63,6 +63,23 @@ final class SnapshotRendererTests: XCTestCase {
         )
     }
 
+    /// Подсветка карточки не просто есть — по ней бежит свет. Проверяется
+    /// это единственным доступным способом: два кадра в разные моменты
+    /// не должны совпасть. Заодно ловится случай, когда анимация встала
+    /// (`repeatForever` без `onAppear` молча ничего не делает).
+    func testRimLightKeepsMoving() throws {
+        // Оба кадра — после того, как отыграла вспышка появления: иначе
+        // тест проходил бы и с неподвижной обводкой.
+        let scene = SnapshotScenes.notificationEvent()
+        let early = try render(scene, settling: 1.2)
+        let late = try render(scene, settling: 1.9)
+
+        XCTAssertGreaterThan(
+            biggestDifference(early, late), 0.05,
+            "подсветка неподвижна — свет по обводке не бежит"
+        )
+    }
+
     func testEverySceneRenders() throws {
         for scene in SnapshotScenes.all() {
             let bitmap = try render(scene)
@@ -71,6 +88,32 @@ final class SnapshotRendererTests: XCTestCase {
     }
 
     // MARK: - Опоры
+
+    /// Самая изменившаяся точка двух кадров. Среднее здесь не годится:
+    /// обводка занимает доли процента кадра, и любое движение по ней
+    /// растворяется в чёрном фоне.
+    private func biggestDifference(
+        _ first: NSBitmapImageRep, _ second: NSBitmapImageRep
+    ) -> CGFloat {
+        var biggest: CGFloat = 0
+        for x in stride(from: 0, to: min(first.pixelsWide, second.pixelsWide), by: 2) {
+            for y in stride(from: 0, to: min(first.pixelsHigh, second.pixelsHigh), by: 2) {
+                biggest = max(
+                    biggest,
+                    abs(brightness(first, x: x, y: y) - brightness(second, x: x, y: y))
+                )
+            }
+        }
+        return biggest
+    }
+
+    private func render(
+        _ scene: SnapshotScene, settling: TimeInterval
+    ) throws -> NSBitmapImageRep {
+        var copy = scene
+        copy.settleTime = settling
+        return try render(copy)
+    }
 
     private func render(_ scene: SnapshotScene) throws -> NSBitmapImageRep {
         // Видам нужен инициализированный NSApplication: без него AppKit
