@@ -214,6 +214,7 @@ public enum SnapshotScenes {
             peekHint(),
             notificationBadge(),
             notificationThreads(),
+            notificationLong(),
             longNames(),
             showcaseColumns(),
             showcaseCentered(),
@@ -386,6 +387,32 @@ public enum SnapshotScenes {
                 )
             }
             environment.viewModel.state = .expanded
+        }
+    }
+
+    /// Длинное имя и длинный текст: карточка не должна ни расползаться,
+    /// ни съедать счётчик, ни обрезать текст на полуслове без многоточия.
+    static func notificationLong() -> SnapshotScene {
+        scene("12-notification-long", size: compactCanvas) { environment in
+            let icon = appIcon()
+            environment.notifications.inject(
+                NotificationMirrorProvider.Message(
+                    id: UUID(),
+                    app: "Telegram",
+                    bundleID: "ru.keepcoder.Telegram",
+                    sender: "Екатерина Александровна Преображенская",
+                    body: "Добрый день! Отправила правки по договору, посмотрите пожалуйста до конца дня",
+                    kind: .text,
+                    icon: icon,
+                    tint: icon.accentColor,
+                    receivedAt: .now
+                )
+            )
+            environment.notifications.injectUnread(
+                app: "Telegram", count: 12,
+                sender: "Екатерина Александровна Преображенская"
+            )
+            environment.viewModel.state = .event
         }
     }
 

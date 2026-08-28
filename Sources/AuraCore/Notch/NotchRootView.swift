@@ -183,8 +183,13 @@ struct NotchRootView: View {
                 // Верхняя часть карточки — это физический вырез, там всё
                 // и так чёрное. Обводка по его кромке обрывается и выглядит
                 // сломанной, поэтому вверху она сходит на нет.
+                // Больше маска, а не сама обводка: раздуть обводку значит
+                // раздуть и форму выреза внутри неё — она поедет от кромки.
+                // Свечение же выходит за край карточки, и маска ростом
+                // с кадр срезала его ровной линией: подсветка выглядела
+                // наклейкой, а не светом.
                 EventRim(shape: shape, tint: message.tint)
-                    .mask(rimMask)
+                    .mask(rimMask.padding(-Self.rimBleed))
             }
         }
         .shadow(
@@ -309,14 +314,22 @@ struct NotchRootView: View {
         }
     }
 
+    /// Насколько свечению позволено выходить за кромку карточки.
+    static let rimBleed: CGFloat = 26
+
     /// Обводка проявляется только ниже выреза.
+    ///
+    /// Маска считается по увеличенному кадру: она накрывает и то, что
+    /// вылезло наружу, — иначе край свечения срезается ровной линией.
     private var rimMask: LinearGradient {
-        let share = min(0.7, viewModel.geometry.menuBarHeight / max(viewModel.eventSize.height, 1))
+        let height = max(viewModel.eventSize.height + Self.rimBleed * 2, 1)
+        let top = (viewModel.geometry.menuBarHeight + Self.rimBleed) / height
+
         return LinearGradient(
             stops: [
                 .init(color: .clear, location: 0),
-                .init(color: .clear, location: share * 0.85),
-                .init(color: .black, location: min(1, share * 1.5)),
+                .init(color: .clear, location: max(0, top - 0.03)),
+                .init(color: .black, location: min(1, top + 0.08)),
             ],
             startPoint: .top,
             endPoint: .bottom

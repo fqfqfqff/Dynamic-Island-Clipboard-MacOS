@@ -38,7 +38,9 @@ struct EventCard: View {
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 6)
+            // Зазор до счётчика: с многоточием текст иначе притирается
+            // к цифре вплотную и читается как одно слово.
+            Spacer(minLength: 14 * scale)
 
             // Код подтверждения — самое частое, ради чего вообще смотрят
             // на такое уведомление. macOS подставляет коды сама, но только
@@ -186,14 +188,18 @@ struct EventRim: View {
                 )
                 .blur(radius: 1.2)
 
-            // Свечение наружу в два слоя: ближний даёт цвет, дальний —
-            // ощущение подсветки вокруг выреза.
+            // Свечение наружу тремя слоями с разным размытием: два дают
+            // ступеньку, которая читается как вторая обводка, а не как ореол.
+            // Каждый следующий шире и слабее — так свет затухает плавно.
             shape
-                .stroke(vivid.opacity(settled ? 0.65 : 0.9), lineWidth: 3)
-                .blur(radius: 7)
+                .stroke(vivid.opacity(settled ? 0.7 : 0.95), lineWidth: 2.5)
+                .blur(radius: 4)
             shape
-                .stroke(vivid.opacity(settled ? 0.3 : 0.55), lineWidth: 7)
-                .blur(radius: 16)
+                .stroke(vivid.opacity(settled ? 0.4 : 0.6), lineWidth: 5)
+                .blur(radius: 11)
+            shape
+                .stroke(vivid.opacity(settled ? 0.2 : 0.35), lineWidth: 9)
+                .blur(radius: 20)
         }
         .allowsHitTesting(false)
         .onAppear {
