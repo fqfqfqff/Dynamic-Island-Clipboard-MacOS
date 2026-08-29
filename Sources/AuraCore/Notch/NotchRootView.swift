@@ -179,7 +179,10 @@ struct NotchRootView: View {
         }
         .overlay { border }
         .overlay {
-            if isEvent, let message = notifications.latest {
+            // Своя анимация — только для обводки: навесить её на весь стек
+            // значит задеть и размеры панели, у которых своя.
+            Group {
+                if isEvent, let message = notifications.latest {
                 // Верхняя часть карточки — это физический вырез, там всё
                 // и так чёрное. Обводка по его кромке обрывается и выглядит
                 // сломанной, поэтому вверху она сходит на нет.
@@ -188,9 +191,20 @@ struct NotchRootView: View {
                 // Свечение же выходит за край карточки, и маска ростом
                 // с кадр срезала его ровной линией: подсветка выглядела
                 // наклейкой, а не светом.
-                EventRim(shape: shape, tint: message.tint)
-                    .mask(rimMask.padding(-Self.rimBleed))
+                    EventRim(shape: shape, tint: message.tint)
+                        .mask(rimMask.padding(-Self.rimBleed))
+                        // Уходит ровно с той же скоростью, что и карточка.
+                        // Раньше подсветка исчезала мгновенно, пока карточка
+                        // ещё уезжала, — и переход выглядел сорванным.
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.animation(AuraAnimation.contentIn),
+                                removal: .opacity.animation(.easeIn(duration: 0.2))
+                            )
+                        )
+                }
             }
+            .animation(.easeIn(duration: 0.2), value: isEvent)
         }
         .shadow(
             color: .black.opacity(settings.showShadow && isExpanded ? 0.5 : 0),

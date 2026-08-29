@@ -556,6 +556,17 @@ final class NotificationMirrorProvider: ObservableObject {
     /// приложения. Уведомление при этом приходит — просто молча. База знает
     /// о нём всё равно, и знает лучше баннера: там есть идентификатор
     /// приложения, а значит, точная иконка, а не поиск по имени.
+    /// Сколько ждать баннера, прежде чем показывать то же самое из базы.
+    ///
+    /// Одно уведомление приходит обоими путями, и тексты у них расходятся:
+    /// баннер отдаёт три строки как есть, база — заголовок, подзаголовок
+    /// и текст по отдельности. Отсев по содержимому такие пары не ловит,
+    /// и карточка показывалась дважды, второй раз продлевая себе жизнь.
+    /// Поэтому у базы своя проверка — по разговору, а не по тексту.
+    private static let bannerGrace: TimeInterval = 12
+    /// Когда разговор последний раз показывали.
+    private var shownThreads: [String: Date] = [:]
+
     private func present(record: NotificationStore.Record) {
         let appName = Self.applicationName(forBundleID: record.bundleID) ?? record.title
 
@@ -567,6 +578,13 @@ final class NotificationMirrorProvider: ObservableObject {
             .compactMap { $0 }
             .joined(separator: " · ")
 
+        let thread = Self.threadKey(app: appName, sender: sender)
+        if let shown = shownThreads[thread],
+           Date().timeIntervalSince(shown) < Self.bannerGrace {
+            // Это уже показал баннер — он же и подробнее.
+            return
+        }
+
         present(
             Content(app: appName, sender: sender, body: body.isEmpty ? nil : body),
             bundleID: record.bundleID
@@ -577,8 +595,17 @@ final class NotificationMirrorProvider: ObservableObject {
     static func applicationName(forBundleID bundleID: String) -> String? {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
         else { return nil }
-        return FileManager.default.displayName(atPath: url.path)
-            .replacingOccurrences(of: ".app", with: "")
+
+        // Имя берём на языке системы — тем же, каким приложение называет
+        // себя в баннере. Иначе одно уведомление приходит двумя путями под
+        // разными именами: «Редактор скриптов» из баннера и «Script Editor»
+        // из базы, — и в острове оказывается два разговора вместо одного.
+        let language = Locale.preferredLanguages.first?
+            .components(separatedBy: "-").first ?? "en"
+
+        return systemLanguageName(of: url, language: language)
+            ?? FileManager.default.displayName(atPath: url.path)
+                .replacingOccurrences(of: ".app", with: "")
     }
 
     /// Иконка по идентификатору приложения — без поиска по имени вовсе.
@@ -735,7 +762,11 @@ final class NotificationMirrorProvider: ObservableObject {
             return
         }
 
-        AppDelegate.log("зеркало: показываю «\(content.app) / \(content.sender)»")
+        shownThreads[Self.threadKey(app: content.app, sender: content.sender)] = Date()
+        if shownThreads.count > 40 {
+            let cutoff = Date().addingTimeInterval(-Self.bannerGrace * 4)
+            shownThreads = shownThreads.filter { $0.value > cutoff }
+        }
         unread[content.app, default: 0] += 1
         bundleIDs[content.app] = knownBundle ?? application?.bundleIdentifier
 
@@ -1187,7 +1218,7 @@ final class NotificationMirrorProvider: ObservableObject {
     }
 
     /// Имя приложения на языке системы — то, которым его назовёт баннер.
-    private static func systemLanguageName(of url: URL, language: String) -> String? {
+    static func systemLanguageName(of url: URL, language: String) -> String? {
         let loctable = url.appendingPathComponent("Contents/Resources/InfoPlist.loctable")
         guard let table = NSDictionary(contentsOf: loctable) as? [String: [String: Any]],
               let entry = table[language]

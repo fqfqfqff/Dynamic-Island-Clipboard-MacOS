@@ -196,24 +196,28 @@ struct EventRim: View {
             // с постоянной угловой скоростью, а карточка вытянутая — по
             // длинным сторонам свет летел, по коротким полз. Отрезок контура
             // идёт с постоянной скоростью по длине пути, как и должен.
-            // Хвост собран из семи отрезков с плавным затуханием, а не
-            // из трёх: три давали видимые ступеньки — свет обрывался
-            // уступами, а не таял.
-            ForEach(0..<Self.tailSegments, id: \.self) { index in
-                let position = CGFloat(index) / CGFloat(Self.tailSegments - 1)
-                // Косинус, а не прямая: у головы свет держится, к концу
-                // хвоста уходит мягко.
-                let fade = (cos(Double(position) * .pi) + 1) / 2
+            // Хвост — набор отрезков контура с плавным затуханием.
+            //
+            // Отрезков много и они с запасом перекрывают друг друга: со
+            // встык поставленными видны стыки, а с круглыми наконечниками —
+            // бусины. Поверх всего лёгкое размытие: оно и стирает остаток
+            // ступенек, которых на глаз всё равно не должно быть.
+            ZStack {
+                ForEach(0..<Self.tailSegments, id: \.self) { index in
+                    let position = CGFloat(index) / CGFloat(Self.tailSegments - 1)
+                    let step = Self.tailLength / CGFloat(Self.tailSegments - 1)
 
-                comet(
-                    phase: phase,
-                    from: position * Self.tailLength,
-                    to: (position + 1 / CGFloat(Self.tailSegments - 1)) * Self.tailLength,
-                    color: index == 0 ? .white : vivid,
-                    opacity: fade,
-                    width: 1.2 + (1 - position) * 1.4
-                )
+                    comet(
+                        phase: phase,
+                        from: position * Self.tailLength,
+                        to: position * Self.tailLength + step * 1.6,
+                        color: Self.tailColor(at: position, tint: vivid),
+                        opacity: Self.tailFade(at: position),
+                        width: 1.2 + (1 - position) * 1.3
+                    )
+                }
             }
+            .blur(radius: 0.7)
 
             // Одно мягкое свечение — только чтобы линия не выглядела
             // приклеенной. Оно едва заметно и сразу за линией затухает.
@@ -229,8 +233,36 @@ struct EventRim: View {
     }
 
     /// Сколько отрезков в хвосте и какой он длины по контуру.
-    private static let tailSegments = 7
-    private static let tailLength: CGFloat = 0.17
+    private static let tailSegments = 14
+    private static let tailLength: CGFloat = 0.19
+
+    /// Яркость вдоль хвоста.
+    ///
+    /// Не косинус и не прямая: у головы свет должен держаться почти
+    /// неизменным, а к концу уходить в ноль медленно. Косинус давал
+    /// заметный перелом в середине — именно он и читался как «переход
+    /// от яркого к тусклому» вместо ровного затухания.
+    static func tailFade(at position: CGFloat) -> Double {
+        let left = Double(1 - position)
+        return left * left * (3 - 2 * left) * left
+    }
+
+    /// Голова белая, дальше цвет приложения — переход тоже плавный.
+    ///
+    /// Смешиваем руками: `Color.mix(with:by:)` появился только в macOS 15,
+    /// а проект живёт с 14.4.
+    static func tailColor(at position: CGFloat, tint: Color) -> Color {
+        let whiteness = max(0, 1 - Double(position) / 0.22) * 0.85
+        guard whiteness > 0.001,
+              let base = NSColor(tint).usingColorSpace(.sRGB) else { return tint }
+
+        func blend(_ value: CGFloat) -> Double { Double(value + (1 - value) * whiteness) }
+        return Color(
+            red: blend(base.redComponent),
+            green: blend(base.greenComponent),
+            blue: blend(base.blueComponent)
+        )
+    }
 
     /// Один отрезок хвоста: кусок контура позади головы.
     @ViewBuilder
@@ -239,7 +271,9 @@ struct EventRim: View {
         color: Color, opacity: Double, width: CGFloat
     ) -> some View {
         let tinted = color.opacity(opacity)
-        let style = StrokeStyle(lineWidth: width, lineCap: .round)
+        // Встык, а не круглыми наконечниками: круглые дают бусины на стыках
+        // соседних отрезков, а перекрытие и без них закрывает шов.
+        let style = StrokeStyle(lineWidth: width, lineCap: .butt)
 
         // `trim` не умеет через ноль, поэтому на стыке рисуем двумя кусками.
         let start = phase - to

@@ -414,7 +414,8 @@ final class NotchViewModel: ObservableObject {
 
         guard hold > 0 else { return }
         let work = DispatchWorkItem { [weak self] in
-            guard let self, self.state == .event else { return }
+            guard let self else { return }
+            guard self.state == .event else { return }
             self.transition(to: .collapsed)
         }
         eventWork = work
