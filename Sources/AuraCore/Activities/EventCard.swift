@@ -151,12 +151,32 @@ struct EventRim: View {
 
     @EnvironmentObject private var settings: SettingsStore
 
-    /// Куда сейчас смотрит бегущий блик.
-    @State private var sweep: Double = 0
     /// Вспышка в первый момент: карточка приходит ярче, чем живёт потом.
     @State private var settled = false
+    /// Момент появления — от него и считается ход блика.
+    @State private var appearedAt = Date()
+
+    /// Сколько блик идёт по кругу.
+    private var period: Double { 3.4 * max(0.5, settings.animationSpeed) }
 
     var body: some View {
+        // Ход блика считается от часов, а не анимацией состояния.
+        //
+        // `repeatForever` перезапускает анимацию на каждом круге, и на стыке
+        // виден рывок: значение прыгает с конца в начало, а SwiftUI успевает
+        // вставить между ними кадр. От часов ход непрерывен по определению —
+        // круг просто продолжается.
+        TimelineView(.animation(minimumInterval: 1.0 / 60)) { context in
+            content(phase: phase(at: context.date))
+        }
+    }
+
+    private func phase(at date: Date) -> CGFloat {
+        let elapsed = date.timeIntervalSince(appearedAt)
+        return CGFloat((elapsed / period).truncatingRemainder(dividingBy: 1))
+    }
+
+    private func content(phase: CGFloat) -> some View {
         ZStack {
             // Тонкая линия — основа. Именно она и должна читаться как
             // обводка: широкое свечение вокруг выреза выглядело подтёком,
@@ -176,9 +196,24 @@ struct EventRim: View {
             // с постоянной угловой скоростью, а карточка вытянутая — по
             // длинным сторонам свет летел, по коротким полз. Отрезок контура
             // идёт с постоянной скоростью по длине пути, как и должен.
-            comet(length: 0.16, opacity: 0.28, width: 2.6)
-            comet(length: 0.08, opacity: 0.75, width: 1.6)
-            comet(length: 0.035, opacity: 1, width: 1.3, white: true)
+            // Хвост собран из семи отрезков с плавным затуханием, а не
+            // из трёх: три давали видимые ступеньки — свет обрывался
+            // уступами, а не таял.
+            ForEach(0..<Self.tailSegments, id: \.self) { index in
+                let position = CGFloat(index) / CGFloat(Self.tailSegments - 1)
+                // Косинус, а не прямая: у головы свет держится, к концу
+                // хвоста уходит мягко.
+                let fade = (cos(Double(position) * .pi) + 1) / 2
+
+                comet(
+                    phase: phase,
+                    from: position * Self.tailLength,
+                    to: (position + 1 / CGFloat(Self.tailSegments - 1)) * Self.tailLength,
+                    color: index == 0 ? .white : vivid,
+                    opacity: fade,
+                    width: 1.2 + (1 - position) * 1.4
+                )
+            }
 
             // Одно мягкое свечение — только чтобы линия не выглядела
             // приклеенной. Оно едва заметно и сразу за линией затухает.
@@ -188,36 +223,35 @@ struct EventRim: View {
         }
         .allowsHitTesting(false)
         .onAppear {
-            // Скорость общая с остальными анимациями: в «Спокойном» наборе
-            // всё замедлено в полтора раза, и блик не должен быть
-            // единственным, что бежит по-прежнему быстро.
-            let round = 3.4 * max(0.5, settings.animationSpeed)
-            withAnimation(.linear(duration: round).repeatForever(autoreverses: false)) {
-                sweep = 360
-            }
+            appearedAt = Date()
             withAnimation(.easeOut(duration: 0.9)) { settled = true }
         }
     }
 
-    /// Один слой блика: отрезок контура, идущий за головой кометы.
-    ///
-    /// Хвост собирается из трёх таких — длинного и тусклого, среднего
-    /// и короткой белой головы. Так у света есть направление, а переход
-    /// в темноту не виден ступенькой.
+    /// Сколько отрезков в хвосте и какой он длины по контуру.
+    private static let tailSegments = 7
+    private static let tailLength: CGFloat = 0.17
+
+    /// Один отрезок хвоста: кусок контура позади головы.
     @ViewBuilder
     private func comet(
-        length: CGFloat, opacity: Double, width: CGFloat, white: Bool = false
+        phase: CGFloat, from: CGFloat, to: CGFloat,
+        color: Color, opacity: Double, width: CGFloat
     ) -> some View {
-        let color = (white ? Color.white : vivid).opacity(opacity)
-        let head = sweep / 360
-        let tail = head - length
+        let tinted = color.opacity(opacity)
+        let style = StrokeStyle(lineWidth: width, lineCap: .round)
 
         // `trim` не умеет через ноль, поэтому на стыке рисуем двумя кусками.
-        shape.trim(from: max(0, tail), to: head)
-            .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round))
-        if tail < 0 {
-            shape.trim(from: 1 + tail, to: 1)
-                .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round))
+        let start = phase - to
+        let end = phase - from
+
+        if start >= 0 {
+            shape.trim(from: start, to: end).stroke(tinted, style: style)
+        } else if end <= 0 {
+            shape.trim(from: 1 + start, to: 1 + end).stroke(tinted, style: style)
+        } else {
+            shape.trim(from: 0, to: end).stroke(tinted, style: style)
+            shape.trim(from: 1 + start, to: 1).stroke(tinted, style: style)
         }
     }
 
