@@ -164,7 +164,7 @@ struct ClipboardWindowView: View {
                             // от любого движения мыши.
                             .onTapGesture { onUse(item) }
                             .contextMenu {
-                                Button(item.isPinned ? "Открепить" : "Закрепить") {
+                                Button(item.isPinned ? t("ui.4ce0faad", "Открепить") : t("ui.1492abef", "Закрепить")) {
                                     clipboard.togglePin(item)
                                 }
                             }
@@ -185,7 +185,7 @@ struct ClipboardWindowView: View {
             Image(systemName: "doc.on.clipboard")
                 .font(.system(size: 26, weight: .light))
                 .foregroundStyle(.secondary)
-            Text(query.isEmpty ? "История пуста" : "Ничего не найдено")
+            Text(query.isEmpty ? t("ui.724b4cd3", "История пуста") : t("ui.1e1b70b1", "Ничего не найдено"))
                 .font(.system(size: 13, weight: .medium))
             if query.isEmpty {
                 Text(t("ui.8e26e1a9", "Скопируйте что-нибудь — оно появится здесь"))

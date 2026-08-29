@@ -113,7 +113,7 @@ final class BatteryActivityProvider {
             center.upsert(
                 Activity(
                     id: lowActivityID,
-                    title: "Заряд \(snapshot.percent)%",
+                    title: String(format: t("ui.0d4c81b7", "Заряд %d%%"), snapshot.percent),
                     subtitle: t("ui.6f21a904", "Пора к розетке"),
                     symbol: "battery.25",
                     tint: .red,

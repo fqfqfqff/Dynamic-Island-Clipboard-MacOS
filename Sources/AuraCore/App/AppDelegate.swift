@@ -397,7 +397,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         if let release = updates.available {
             add(
                 to: menu,
-                title: "Есть версия \(release.version)",
+                title: String(format: t("ui.9e3b17a0", "Есть версия %@"), release.version),
                 key: "",
                 action: #selector(openRelease)
             )
@@ -444,7 +444,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         alert.informativeText = pgrepPlayers().isEmpty
             ? "Сначала запустите Spotify или Музыку и включите трек, затем повторите — без работающего плеера системе нечего спрашивать."
             : "Если появится окно «Aura хочет управлять…», нажмите «OK». После этого Aura появится в разделе «Автоматизация»."
-        alert.addButton(withTitle: "Понятно")
+        alert.addButton(withTitle: t("ui.f127f2a1", "Понятно"))
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
     }

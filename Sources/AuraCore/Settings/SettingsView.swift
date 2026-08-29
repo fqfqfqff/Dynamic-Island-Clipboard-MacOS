@@ -10,6 +10,20 @@ struct SettingsView: View {
     @State private var section: Section = .island
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var importedCount: Int?
+    /// Что ищем в настройках. Их восемьдесят с лишним в девяти разделах,
+    /// и «где-то я это видел» — самый частый способ их искать.
+    @State private var search = ""
+
+    /// Подходит ли группа под поиск. Пустой запрос пропускает всё.
+    private func matches(_ title: String) -> Bool {
+        let query = search.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return true }
+        return title.localizedCaseInsensitiveContains(query)
+    }
+
+    private var isSearching: Bool {
+        !search.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     enum Section: String, CaseIterable, Identifiable {
         case island = "Остров"
@@ -49,13 +63,14 @@ struct SettingsView: View {
         } detail: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    levelPicker
+                    if !isSearching { levelPicker }
                     content
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .navigationTitle(section.rawValue)
+            .searchable(text: $search, prompt: t("ui.2c9b3f18", "Поиск по настройкам"))
         }
         .frame(width: 720, height: 500)
     }
@@ -100,6 +115,28 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var content: some View {
+        // При поиске раздел не выбирают — показываем всё сразу и оставляем
+        // только подходящие группы. Иначе искать пришлось бы по девяти
+        // разделам по очереди, а именно от этого поиск и спасает.
+        if isSearching {
+            VStack(alignment: .leading, spacing: 22) {
+                island
+                player
+                appearance
+                showcase
+                behaviour
+                sources
+                notifications
+                clipboard
+                system
+            }
+        } else {
+            selected
+        }
+    }
+
+    @ViewBuilder
+    private var selected: some View {
         switch section {
         case .island: island
         case .player: player
@@ -118,29 +155,29 @@ struct SettingsView: View {
     private var island: some View {
         VStack(alignment: .leading, spacing: 22) {
             advanced {
-                group("Форма") {
-                    slider("Скругление снизу", $settings.bottomCornerRadius, 0...40, "pt")
-                    slider("Ширина боковых слотов", $settings.accessorySlotWidth, 28...80, "pt")
+                group(t("ui.22af8f93", "Форма")) {
+                    slider(t("ui.5542f379", "Скругление снизу"), $settings.bottomCornerRadius, 0...40, "pt")
+                    slider(t("ui.025075d8", "Ширина боковых слотов"), $settings.accessorySlotWidth, 28...80, "pt")
                     Toggle(t("ui.7749cde9", "Вывернутые верхние углы"), isOn: $settings.showWings)
                     hint("Вывернутые углы делают панель как бы вытекающей из выреза.")
                 }
             }
 
-            group("Раскрытая панель") {
-                slider("Ширина", $settings.expandedWidth, 260...760, "pt")
+            group(t("ui.913464a2", "Раскрытая панель")) {
+                slider(t("ui.d73c1c19", "Ширина"), $settings.expandedWidth, 260...760, "pt")
                 hint("Высота панели подбирается сама — по тому, что в ней сейчас лежит.")
                 hint("Высота не опустится ниже содержимого плеера — оно всегда помещается целиком.")
             }
 
-            group("Отклик на курсор") {
+            group(t("ui.022458df", "Отклик на курсор")) {
                 Toggle(t("ui.e021a79c", "Реагировать на приближение"), isOn: $settings.reactToProximity)
                 if settings.reactToProximity {
-                    slider("Радиус реакции", $settings.proximityReach, 60...400, "pt")
+                    slider(t("ui.38213724", "Радиус реакции"), $settings.proximityReach, 60...400, "pt")
                     hint("Чем ближе и быстрее курсор, тем резвее раскрывается остров.")
                 }
             }
 
-            group("Жесты") {
+            group(t("ui.9827140f", "Жесты")) {
                 Toggle(t("ui.cf016813", "Прокрутка вбок переключает трек"), isOn: $settings.scrollSwitchesTrack)
                 Toggle(t("ui.74eee7cc", "Двойной клик ставит на паузу"), isOn: $settings.doubleClickTogglesPlayback)
                 Toggle(t("ui.0d5c8a12", "Спрашивать, что делать с файлом"), isOn: $settings.dropShowsMenu)
@@ -148,25 +185,25 @@ struct SettingsView: View {
                 hint("Долгое нажатие на вырез открывает быстрое меню: пауза, спрятать остров, настройки.")
             }
 
-            group("Движение") {
-                slider("Характер", $settings.animationBounce, 0...1, "")
+            group(t("ui.8823c7b1", "Движение")) {
+                slider(t("ui.374cdcba", "Характер"), $settings.animationBounce, 0...1, "")
                 hint(settings.animationBounce < 0.2
                      ? "Движение останавливается сразу, без отыгрыша."
                      : "Как на островке айфона: в конце движение чуть отыгрывает назад.")
             }
 
             advanced {
-                group("Тонкая настройка движения") {
-                    slider("Скорость анимаций", $settings.animationSpeed, 0.5...2, "×")
-                    slider("Задержка раскрытия", $settings.hoverDelay, 0...1.2, "с")
-                    slider("Сворачивать через", $settings.autoCollapseAfter, 0...30, "с")
+                group(t("ui.863ef7bc", "Тонкая настройка движения")) {
+                    slider(t("ui.f4ceea74", "Скорость анимаций"), $settings.animationSpeed, 0.5...2, "×")
+                    slider(t("ui.7cc67561", "Задержка раскрытия"), $settings.hoverDelay, 0...1.2, t("ui.b40bbca3", "с"))
+                    slider(t("ui.270cf83c", "Сворачивать через"), $settings.autoCollapseAfter, 0...30, t("ui.b40bbca3", "с"))
                     hint(settings.autoCollapseAfter == 0
                          ? "Ноль — панель закрывается только когда курсор уходит."
                          : "Панель закроется сама через \(Int(settings.autoCollapseAfter)) с.")
                 }
             }
 
-            group("Подсказка при наведении") {
+            group(t("ui.f4f4ff36", "Подсказка при наведении")) {
                 Picker("", selection: $settings.hintStyle) {
                     Text(t("ui.c81a4b70", "Стрелка")).tag("chevron")
                     Text(t("ui.5f9d2e13", "Полоска")).tag("line")
@@ -176,21 +213,21 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
                 standard {
-                    slider("Насколько подрастает", $settings.peekGrowth, 8...40, "pt")
+                    slider(t("ui.625aceb8", "Насколько подрастает"), $settings.peekGrowth, 8...40, "pt")
                 }
             }
 
             advanced {
-                group("Оформление панели") {
+                group(t("ui.f49c0363", "Оформление панели")) {
                     Toggle(t("ui.06462a53", "Тень под панелью"), isOn: $settings.showShadow)
                     Toggle(t("ui.67c2e385", "Тонкая обводка"), isOn: $settings.showBorder)
-                    slider("Размытие подложки", $settings.backdropBlur, 0...120, "pt")
-                    slider("Яркость подложки", $settings.backdropStrength, 0...1, "")
+                    slider(t("ui.86940f3b", "Размытие подложки"), $settings.backdropBlur, 0...120, "pt")
+                    slider(t("ui.7aeb2a65", "Яркость подложки"), $settings.backdropStrength, 0...1, "")
                 }
             }
 
             standard {
-                group("Правый значок у выреза") {
+                group(t("ui.b9fcd27e", "Правый значок у выреза")) {
                     Picker("", selection: $settings.trailingSlotStyle) {
                         Text(t("ui.7f053917", "Полоски звука")).tag("bars")
                         Text(t("ui.bb14d99c", "Кольцо прогресса")).tag("progress")
@@ -209,19 +246,19 @@ struct SettingsView: View {
     private var player: some View {
         VStack(alignment: .leading, spacing: 22) {
             advanced {
-                group("Обложка") {
-                    slider("Размер", $settings.artworkSize, 72...170, "pt")
-                    slider("Скругление", $settings.artworkCornerRadius, 0...40, "pt")
+                group(t("ui.a0d610b7", "Обложка")) {
+                    slider(t("ui.98713e88", "Размер"), $settings.artworkSize, 72...170, "pt")
+                    slider(t("ui.99204a3c", "Скругление"), $settings.artworkCornerRadius, 0...40, "pt")
                 }
             }
 
             advanced {
-                group("Текст") {
-                    slider("Размер названия", $settings.titleFontSize, 12...22, "pt")
+                group(t("ui.93970437", "Текст")) {
+                    slider(t("ui.2ca22b83", "Размер названия"), $settings.titleFontSize, 12...22, "pt")
                 }
             }
 
-            group("Элементы") {
+            group(t("ui.9e4ad29d", "Элементы")) {
                 Toggle(t("ui.2bd0d76a", "Полоса длительности"), isOn: $settings.showSeekBar)
                 Toggle(t("ui.85474f45", "Показывать оставшееся время"), isOn: $settings.showRemainingTime)
                 Toggle(t("ui.55296ac4", "Кнопки управления"), isOn: $settings.showControls)
@@ -235,7 +272,7 @@ struct SettingsView: View {
 
     private var appearance: some View {
         VStack(alignment: .leading, spacing: 22) {
-            group("Фон") {
+            group(t("ui.b59390bb", "Фон")) {
                 Picker("", selection: $settings.backgroundStyle) {
                     Text(t("ui.a0d610b7", "Обложка")).tag("artwork")
                     Text(t("ui.4f7a89ea", "Градиент")).tag("gradient")
@@ -245,7 +282,7 @@ struct SettingsView: View {
                 .labelsHidden()
 
                 if settings.backgroundStyle == "gradient" {
-                    Picker("Градиент", selection: $settings.gradientPreset) {
+                    Picker(t("ui.4f7a89ea", "Градиент"), selection: $settings.gradientPreset) {
                         ForEach(AuraTheme.gradients) { preset in
                             Text(preset.name).tag(preset.id)
                         }
@@ -254,7 +291,7 @@ struct SettingsView: View {
             }
 
             advanced {
-                group("Стекло") {
+                group(t("ui.1fe21df1", "Стекло")) {
                     Picker("", selection: $settings.glassStyle) {
                         Text(t("ui.64962a2f", "Обычное")).tag("regular")
                         Text(t("ui.5a632c81", "Прозрачное")).tag("clear")
@@ -267,7 +304,7 @@ struct SettingsView: View {
                 }
             }
 
-            group("Акцент") {
+            group(t("ui.2dd965ee", "Акцент")) {
                 Picker("", selection: $settings.accentSource) {
                     Text(t("ui.20834a93", "С обложки")).tag("artwork")
                     Text(t("ui.e51629de", "Свой цвет")).tag("fixed")
@@ -276,7 +313,7 @@ struct SettingsView: View {
                 .labelsHidden()
 
                 if settings.accentSource == "fixed" {
-                    ColorPicker("Цвет", selection: Binding(
+                    ColorPicker(t("ui.84b22ed2", "Цвет"), selection: Binding(
                         get: { AuraTheme.color(fromHex: settings.accentHex) ?? .pink },
                         set: { settings.accentHex = $0.hexString }
                     ))
@@ -285,7 +322,7 @@ struct SettingsView: View {
             }
 
             advanced {
-                group("Шрифт") {
+                group(t("ui.df12865c", "Шрифт")) {
                     Picker("", selection: $settings.fontDesign) {
                         Text(t("ui.eca17171", "Системный")).tag("default")
                         Text(t("ui.cdcedc31", "Скруглённый")).tag("rounded")
@@ -303,7 +340,7 @@ struct SettingsView: View {
     private var showcase: some View {
         VStack(alignment: .leading, spacing: 22) {
             standard {
-                group("Расположение") {
+                group(t("ui.2c5d3eb3", "Расположение")) {
                     Picker("", selection: $settings.showcaseLayout) {
                         Text(t("ui.77fb4be7", "Обложка и текст рядом")).tag("columns")
                         Text(t("ui.3f02d687", "Всё по центру")).tag("centered")
@@ -315,16 +352,16 @@ struct SettingsView: View {
             }
 
             standard {
-                group("Текст песни") {
+                group(t("ui.5266f583", "Текст песни")) {
                     Toggle(t("ui.a27f07b8", "Показывать текст"), isOn: $settings.showLyrics)
                     hint("Тексты берутся с открытой базы lrclib.net — туда уходят название трека, исполнитель и длительность. Работает для Музыки и Spotify.")
                 }
             }
 
-            group("Когда показывать") {
+            group(t("ui.ec28310d", "Когда показывать")) {
                 Toggle(t("ui.08def347", "Показывать, когда я отошёл"), isOn: $settings.showcaseOnIdle)
                 if settings.showcaseOnIdle {
-                    slider("Через", $settings.showcaseIdleMinutes, 1...15, "мин")
+                    slider(t("ui.4e3c6adc", "Через"), $settings.showcaseIdleMinutes, 1...15, t("ui.d6035dc6", "мин"))
                 }
                 hint("Вручную — ⌥⌘M. На самом экране блокировки рисовать macOS не даёт; для этого есть заставка: Scripts/install-saver.sh")
             }
@@ -335,7 +372,7 @@ struct SettingsView: View {
 
     private var behaviour: some View {
         VStack(alignment: .leading, spacing: 22) {
-            group("Раскрытие") {
+            group(t("ui.d2d09a67", "Раскрытие")) {
                 Toggle(t("ui.c44d80e0", "Раскрывать при наведении"), isOn: $settings.expandOnHover)
                 hint(settings.expandOnHover
                      ? "Панель откроется, как только курсор дойдёт до выреза."
@@ -343,22 +380,22 @@ struct SettingsView: View {
             }
 
             standard {
-                group("Полноэкранный режим") {
+                group(t("ui.0bedd176", "Полноэкранный режим")) {
                     Toggle(t("ui.49649472", "Прятать панель в полноэкранных приложениях"), isOn: $settings.hideInFullScreen)
                     hint("Иначе macOS показывает верхнюю кромку окна поверх видео.")
                 }
             }
 
             standard {
-                group("Несколько мониторов") {
+                group(t("ui.d113c279", "Несколько мониторов")) {
                     Toggle(t("ui.43000da8", "Переносить панель на экран с курсором"), isOn: $settings.followMouseScreen)
                     hint("Выключено — панель живёт на экране с физическим вырезом.")
                 }
             }
 
             advanced {
-                group("Мониторы без выреза") {
-                    slider("Ширина виртуального выреза", $settings.virtualNotchWidth, 120...320, "pt")
+                group(t("ui.0cf01a90", "Мониторы без выреза")) {
+                    slider(t("ui.0529fe72", "Ширина виртуального выреза"), $settings.virtualNotchWidth, 120...320, "pt")
                     hint("Применяется после перезапуска Aura.")
                 }
             }
@@ -369,12 +406,12 @@ struct SettingsView: View {
 
     private var notifications: some View {
         VStack(alignment: .leading, spacing: 22) {
-            group("Уведомления приложений") {
+            group(t("ui.bd27d183", "Уведомления приложений")) {
                 Toggle(t("ui.bd27d183", "Уведомления приложений"), isOn: $settings.enableNotifications)
                 hint("Требует Универсальный доступ. Системный баннер при этом остаётся — спрятать чужое окно приложение не может.")
             }
 
-            group("Как показывать") {
+            group(t("ui.5e2772fc", "Как показывать")) {
                 Picker("", selection: $settings.notificationStyle) {
                     Text(t("ui.71c0e9a4", "Карточкой из выреза")).tag("card")
                     Text(t("ui.4fd23b60", "Только значком")).tag("badge")
@@ -387,8 +424,8 @@ struct SettingsView: View {
             }
 
             if settings.notificationStyle == "card" {
-                group("Сколько держать карточку") {
-                    slider("Время показа", $settings.notificationHold, 0...20, "с")
+                group(t("ui.570bdd3a", "Сколько держать карточку")) {
+                    slider(t("ui.db34189e", "Время показа"), $settings.notificationHold, 0...20, t("ui.b40bbca3", "с"))
                     hint(settings.notificationHold == 0
                          ? "Карточка не исчезнет сама — останется, пока не откроете приложение."
                          : "Через \(Int(settings.notificationHold)) с карточка свернётся, а значок останется до прочтения. С кодом из СМС — на четыре секунды дольше: его читают и набирают руками.")
@@ -422,14 +459,14 @@ struct SettingsView: View {
                 }
             }
 
-            group("Что показывать") {
+            group(t("ui.a5d70409", "Что показывать")) {
                 Toggle(t("ui.83e5c17b", "Текст сообщения"), isOn: $settings.notificationShowBody)
                 hint("Выключите, если не хотите, чтобы переписку было видно через плечо: тогда вырез покажет только отправителя и тип — голосовое, кружок, фото.")
                 Toggle(t("ui.2ea94f30", "Обводка в цвет приложения"), isOn: $settings.notificationTintFromIcon)
             }
 
             standard {
-                group("Прочитано") {
+                group(t("ui.901ab2e2", "Прочитано")) {
                     hint("Значок с числом непрочитанных исчезает, когда вы открываете само приложение, — узнать это иначе macOS не даёт.")
                 }
             }
@@ -445,7 +482,7 @@ struct SettingsView: View {
                 hint("Пока Aura слушает звук, macOS держит в строке меню свой значок записи — фиолетовую точку. Убрать её можно только перестав слушать. Без прослушивания полоски спектра рисуются по громкости, а из приложений остаются плееры и браузеры: отличить играющее приложение от того, которое просто держит открытый звук и молчит, больше нечем.")
             }
 
-            group("Что показывать в вырезе") {
+            group(t("ui.f2f1bef9", "Что показывать в вырезе")) {
                 Toggle(t("ui.7b8d5ba8", "Музыка и любой звук"), isOn: $settings.enableMusic)
                 Toggle(t("ui.d7068ba5", "Снимки экрана"), isOn: $settings.enableScreenshots)
                 if settings.enableScreenshots {
@@ -476,19 +513,19 @@ struct SettingsView: View {
                 hint("В AppleScript у Spotify одно поле «исполнитель», и для трека с несколькими оно называет только первого. Остальных Aura берёт с публичной страницы трека — ключей для этого не нужно, но это сетевой запрос, один на трек.")
             }
 
-            group("Наушники") {
+            group(t("ui.36a4dd62", "Наушники")) {
                 Toggle(t("ui.4e02b7c1", "Ставить на паузу, когда отключили наушники"),
                        isOn: $settings.pauseOnHeadphonesRemoved)
                 hint("macOS делает это сама, но только для приложений, которые позаботились. Браузер обычно продолжает играть в динамики.")
             }
 
-            group("Звук") {
+            group(t("ui.3bcc5196", "Звук")) {
                 Toggle(t("ui.205bf115", "Полоски двигаются под реальный звук"), isOn: $settings.reactToAudio)
                 hint("Требует разрешения на запись звука. Ничего не записывается — считаются только уровни частот.")
             }
 
             advanced {
-                group("Свои активности") {
+                group(t("ui.14c06092", "Свои активности")) {
                     Text("Scripts/aura push --id build --title \"Сборка\" --progress 0.4")
                         .font(.system(size: 11, design: .monospaced))
                         .textSelection(.enabled)
@@ -502,7 +539,7 @@ struct SettingsView: View {
 
     private var clipboard: some View {
         VStack(alignment: .leading, spacing: 22) {
-            group("История") {
+            group(t("ui.d5fec747", "История")) {
                 Stepper("Хранить элементов: \(settings.clipboardLimit)",
                         value: $settings.clipboardLimit, in: 10...500, step: 10)
                 Toggle(t("ui.13aa82ac", "Сохранять между запусками"), isOn: $settings.persistClipboard)
@@ -510,7 +547,7 @@ struct SettingsView: View {
             }
 
             standard {
-                group("Не запоминать") {
+                group(t("ui.c09d646e", "Не запоминать")) {
                 if settings.clipboardKnownSources.isEmpty {
                     hint("Здесь появятся приложения, из которых вы копировали. Любое можно исключить — из него в историю не попадёт ничего.")
                 } else {
@@ -530,14 +567,14 @@ struct SettingsView: View {
                 }
             }
 
-            group("Вставка") {
+            group(t("ui.098b5491", "Вставка")) {
                     Toggle(t("ui.ef37cbf6", "Вставлять сразу по клику"), isOn: $settings.autoPaste)
                     hint("Требует разрешения в «Конфиденциальность и безопасность → Универсальный доступ».")
                 }
             }
 
             advanced {
-                group("Журнал") {
+                group(t("ui.67ade741", "Журнал")) {
                     Toggle(t("ui.2b5d528e", "Вести полный журнал копирований"), isOn: $settings.archiveEverything)
                     Button(t("ui.cc93f407", "Показать журнал в Finder")) { ClipboardArchive.revealInFinder() }
                     hint("Записывает всё скопированное, кроме картинок, без ограничения. Содержимое из менеджеров паролей не попадает.")
@@ -550,7 +587,7 @@ struct SettingsView: View {
 
     private var system: some View {
         VStack(alignment: .leading, spacing: 22) {
-            group("Запуск") {
+            group(t("ui.c001fc77", "Запуск")) {
                 Toggle(t("ui.76872153", "Запускать при входе в систему"), isOn: Binding(
                     get: { launchAtLogin },
                     set: { newValue in
@@ -561,7 +598,7 @@ struct SettingsView: View {
                 hint("Работает для копии в ~/Applications: приложение из папки сборки система зарегистрировать не даст.")
             }
 
-            group("Язык интерфейса") {
+            group(t("ui.d9396e7d", "Язык интерфейса")) {
                 Picker("", selection: $settings.language) {
                     Text(t("ui.0b3f7d25", "Системный")).tag("system")
                     Text("Русский").tag("ru")
@@ -572,7 +609,7 @@ struct SettingsView: View {
                 hint("Применяется сразу, перезапуск не нужен.")
             }
 
-            group("Профиль настроек") {
+            group(t("ui.43cdc031", "Профиль настроек")) {
                 HStack(spacing: 8) {
                     Button(t("ui.3e91c0b7", "Сохранить в файл")) { SettingsProfile.export() }
                     Button(t("ui.a05e2d13", "Загрузить из файла")) {
@@ -589,13 +626,13 @@ struct SettingsView: View {
                 }
             }
 
-            group("Разрешения") {
+            group(t("ui.f4470c57", "Разрешения")) {
                 Button(t("ui.e67eddc1", "Открыть экран настройки разрешений")) { AppActions.showOnboarding() }
                 Button(t("ui.46ad51e9", "Запросить разрешения заново")) { settings.forgetPermissionPrompts() }
                 hint("Aura спрашивает разрешения один раз. Если вы отказали случайно — эта кнопка позволит спросить снова.")
             }
 
-            group("Готовые наборы") {
+            group(t("ui.ba4194fb", "Готовые наборы")) {
                 ForEach(SettingsStore.Preset.allCases) { preset in
                     HStack(alignment: .top, spacing: 10) {
                         Button(preset.rawValue) { settings.apply(preset) }
@@ -608,7 +645,7 @@ struct SettingsView: View {
                 }
             }
 
-            group("Сброс") {
+            group(t("ui.9322bf37", "Сброс")) {
                 Button(t("ui.ac282097", "Сбросить все настройки")) { settings.resetToDefaults() }
                 Button(t("ui.2a2a0c98", "Выйти из Aura")) { AppActions.quit() }
             }
@@ -617,15 +654,18 @@ struct SettingsView: View {
 
     // MARK: - Строительные блоки
 
+    @ViewBuilder
     private func group<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-            content()
+        if matches(title) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                content()
+            }
         }
     }
 

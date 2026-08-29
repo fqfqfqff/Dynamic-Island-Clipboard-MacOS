@@ -184,7 +184,7 @@ struct OnboardingView: View {
                 .foregroundStyle(.green)
                 .labelStyle(.titleAndIcon)
         case .denied, .unknown:
-            Button(item.state == .denied ? "Выдать" : "Проверить", action: item.action)
+            Button(item.state == .denied ? t("ui.01e3e494", "Выдать") : t("ui.52dec92e", "Проверить"), action: item.action)
                 .font(.system(size: 11))
         }
     }
