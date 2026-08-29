@@ -102,6 +102,8 @@ final class NotificationMirrorProvider: ObservableObject {
     /// в одном разговоре повторяется, и через минуту это уже новое событие,
     /// а не тот же баннер, прочитанный второй раз.
     private var seen: [String: Date] = [:]
+    /// База Центра уведомлений — то, что пришло без баннера.
+    private let store = NotificationStore()
     /// Значки, снятые с самих баннеров: для приложений, которых на Маке нет.
     private let bannerIcons = BannerIconReader()
     /// Разрешена ли запись экрана — без неё значки с телефона не снять.
@@ -141,6 +143,10 @@ final class NotificationMirrorProvider: ObservableObject {
     /// разрешение может быть выдано, а наблюдатель не заведён — например,
     /// если центра уведомлений не было в списке процессов при запуске.
     var isWatching: Bool { observer != nil }
+
+    /// Читаем ли мы базу Центра уведомлений — запасной источник для того,
+    /// что система не показала баннером.
+    var readsStore: Bool { store.isAvailable }
 
     /// Подставить уведомление вручную — для снимков интерфейса и тестов.
     func inject(_ message: Message?) {
@@ -206,6 +212,12 @@ final class NotificationMirrorProvider: ObservableObject {
         // баннер не пропустим.
         startIdleSweep()
 
+        // И запасной источник: то, что система не показала баннером.
+        store.watch { [weak self] records in
+            guard let self else { return }
+            for record in records { self.present(record: record) }
+        }
+
         // Открыл приложение — значит, прочитал. Другого способа узнать это
         // у нас нет: чужие уведомления система помечать прочитанными не даёт.
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -240,6 +252,7 @@ final class NotificationMirrorProvider: ObservableObject {
         element = nil
         latestBanner = nil
         stopSweep()
+        store.stop()
         idleSweepTimer?.invalidate()
         idleSweepTimer = nil
         seen.removeAll()
@@ -534,6 +547,47 @@ final class NotificationMirrorProvider: ObservableObject {
         return now.timeIntervalSince(shownAt) < within
     }
 
+    // MARK: - Запасной источник: база Центра уведомлений
+
+    /// Уведомление, которого не было в баннере.
+    ///
+    /// Баннеров может не быть вовсе: при «Не беспокоить» система их не
+    /// показывает, а в настройках macOS их можно выключить у любого
+    /// приложения. Уведомление при этом приходит — просто молча. База знает
+    /// о нём всё равно, и знает лучше баннера: там есть идентификатор
+    /// приложения, а значит, точная иконка, а не поиск по имени.
+    private func present(record: NotificationStore.Record) {
+        let appName = Self.applicationName(forBundleID: record.bundleID) ?? record.title
+
+        // Заголовок у мессенджеров — это отправитель, а у остальных — само
+        // приложение. Если заголовок совпал с именем приложения, отправителя
+        // берём из подзаголовка.
+        let sender = record.title == appName ? (record.subtitle ?? appName) : record.title
+        let body = [record.title == appName ? nil : record.subtitle, record.body]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+
+        present(
+            Content(app: appName, sender: sender, body: body.isEmpty ? nil : body),
+            bundleID: record.bundleID
+        )
+    }
+
+    /// Имя приложения по идентификатору — точнее любого поиска по названию.
+    static func applicationName(forBundleID bundleID: String) -> String? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        else { return nil }
+        return FileManager.default.displayName(atPath: url.path)
+            .replacingOccurrences(of: ".app", with: "")
+    }
+
+    /// Иконка по идентификатору приложения — без поиска по имени вовсе.
+    static func icon(forBundleID bundleID: String) -> NSImage? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
+
     // MARK: - Обход открытых баннеров
 
     /// Событие «создано окно» приходит не на каждое уведомление.
@@ -600,7 +654,7 @@ final class NotificationMirrorProvider: ObservableObject {
         }
     }
 
-    private func present(_ content: Content) {
+    private func present(_ content: Content, bundleID knownBundle: String? = nil) {
         // Один и тот же баннер система пересоздаёт, а обход читает его
         // каждые полсекунды заново — без отсева остров дёргался бы без конца.
         let key = "\(content.app)|\(content.sender)|\(content.body ?? "")"
@@ -619,12 +673,16 @@ final class NotificationMirrorProvider: ObservableObject {
         // Имя приложения в баннере бывает пустым — уведомления с телефона
         // приходят не в том же виде, что от приложений на Маке. Тогда буква
         // берётся от отправителя: он есть всегда, и это лучше пустого места.
-        var icon = Self.icon(named: content.app) ?? Self.monogram(for: content.sender)
+        // Идентификатор приложения — самый точный путь к иконке: искать
+        // по имени тогда не нужно вовсе.
+        var icon = knownBundle.flatMap { Self.icon(forBundleID: $0) }
+            ?? Self.icon(named: content.app)
+            ?? Self.monogram(for: content.sender)
 
         // Иконки нет ни среди запущенных, ни среди установленных — значит,
         // приложение живёт на телефоне. Там, где её взять неоткуда, берём
         // с самого баннера: система рисует её сама.
-        let ownIcon = bannerIcons.cached(for: content.app)
+        let ownIcon = Self.isMonogram(icon) ? bannerIcons.cached(for: content.app) : nil
         if let ownIcon { icon = ownIcon }
         lastIconFromScreen = ownIcon != nil
         let kind = Self.kind(from: content.body)
@@ -679,7 +737,7 @@ final class NotificationMirrorProvider: ObservableObject {
 
         AppDelegate.log("зеркало: показываю «\(content.app) / \(content.sender)»")
         unread[content.app, default: 0] += 1
-        bundleIDs[content.app] = application?.bundleIdentifier
+        bundleIDs[content.app] = knownBundle ?? application?.bundleIdentifier
 
         let thread = Self.threadKey(app: content.app, sender: content.sender)
         threads[thread, default: 0] += 1
