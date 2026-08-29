@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>0.3.0</b> · macOS 14.4+ · Apple silicon and Intel ·
+  <b>0.4.0</b> · macOS 14.4+ · Apple silicon and Intel ·
   <a href="README.ru.md">Русская версия</a>
 </p>
 
@@ -230,7 +230,7 @@ to another machine.
 ./Scripts/install.sh    # rebuild and update the installed copy
 ./Scripts/shots.sh      # render the interface to PNG — no screen recording needed
 ./Scripts/make-icon.sh  # redraw the app icon
-swift test              # 132 tests
+swift test              # 152 tests
 ./Scripts/bench.sh      # idle cost: CPU and memory
 Scripts/aura status     # diagnostics
 ```
