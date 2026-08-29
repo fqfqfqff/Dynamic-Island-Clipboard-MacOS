@@ -302,3 +302,36 @@ final class FocusAssertionsTests: XCTestCase {
         XCTAssertNil(FocusActivityProvider.mode(fromAssertions: data("{}")))
     }
 }
+
+/// Карточка и режим фокусирования.
+final class FocusRuleTests: XCTestCase {
+    func testCardBecomesBadgeWhileFocusIsOn() {
+        XCTAssertEqual(
+            NotificationMirrorProvider.rule("card", focusOn: true, respectFocus: true),
+            "badge"
+        )
+    }
+
+    func testFocusOffChangesNothing() {
+        XCTAssertEqual(
+            NotificationMirrorProvider.rule("card", focusOn: false, respectFocus: true),
+            "card"
+        )
+    }
+
+    /// Выключенная настройка — это выбор человека, и фокус её не отменяет.
+    func testSettingOffKeepsTheCard() {
+        XCTAssertEqual(
+            NotificationMirrorProvider.rule("card", focusOn: true, respectFocus: false),
+            "card"
+        )
+    }
+
+    /// Приложение, которому выдали только значок, карточки и так не получало.
+    func testBadgeStaysBadge() {
+        XCTAssertEqual(
+            NotificationMirrorProvider.rule("badge", focusOn: true, respectFocus: true),
+            "badge"
+        )
+    }
+}

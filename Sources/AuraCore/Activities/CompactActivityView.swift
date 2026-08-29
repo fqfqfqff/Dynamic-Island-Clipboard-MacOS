@@ -240,5 +240,6 @@ struct UnreadPill: View {
             // Одна цифра в пилюле выглядит приплюснутой — держим минимум
             // круглым, как на айфоне.
             .frame(minWidth: 20 * scale)
+            .accessibilityLabel(String(format: t("ui.1b7c0d94", "непрочитанных: %@"), text))
     }
 }

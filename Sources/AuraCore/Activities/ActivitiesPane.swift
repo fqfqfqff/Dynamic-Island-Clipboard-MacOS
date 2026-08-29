@@ -253,6 +253,10 @@ private struct ActivityRow: View {
         // краем панели. Лучше одинаковые строки, чем обрезанный список.
         .frame(height: ActivitiesPane.rowHeight)
         .background(RoundedRectangle(cornerRadius: 11).fill(Color.white.opacity(0.06)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            [activity.title, activity.subtitle].compactMap { $0 }.joined(separator: ", ")
+        )
     }
 
     @ViewBuilder

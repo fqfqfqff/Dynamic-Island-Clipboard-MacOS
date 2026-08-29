@@ -9,6 +9,7 @@
 "ui.1259571a" = "Open";
 "ui.13aa82ac" = "Keep between launches";
 "ui.1b74d3f9" = "Aura settings";
+"ui.1b7c0d94" = "%@ unread";
 "ui.1c05e73b" = "looking for lyrics…";
 "ui.1d8e35b7" = "Photo";
 "ui.1f8a2c05" = "Downloaded";
@@ -24,6 +25,7 @@
 "ui.2d6b90e4" = "Audio capture";
 "ui.2d90b4e7" = "Starting";
 "ui.2ea94f30" = "Rim in the app’s colour";
+"ui.2f4b9e05" = "Previous track";
 "ui.30b94f16" = "Pause Aura";
 "ui.32f1084f" = "No access to the player";
 "ui.3a90c7e1" = "%d more";
@@ -55,6 +57,7 @@
 "ui.5d81c204" = "Pick a colour from the screen";
 "ui.5e1b8a30" = "Audio from a device";
 "ui.5e6b0c73" = "Network available";
+"ui.5f1a90e3" = "Notification history";
 "ui.5f9d2e13" = "Bar";
 "ui.616bb19d" = "Allow";
 "ui.62a7d4f1" = "Sticker";
@@ -63,6 +66,7 @@
 "ui.6a30fe17" = "Safe mode: turn sources back on";
 "ui.6b40f9d2" = "Browser downloads";
 "ui.6c2f8d51" = "Connection lost";
+"ui.6c30a4b1" = "Next track";
 "ui.6e4b09d8" = "Nothing";
 "ui.6f21a904" = "Time to plug in";
 "ui.6f30d2a8" = "Compact";
@@ -78,11 +82,13 @@
 "ui.7b8d5ba8" = "Music and any audio";
 "ui.7c40b2e9" = "Screen Recording";
 "ui.7d4e9a02" = "Personal Hotspot";
+"ui.7e2b40c9" = "Focus";
 "ui.7e3a91d4" = "Format JSON";
 "ui.7e3c05af" = "Normal";
 "ui.7eaefe89" = "Nothing is playing";
 "ui.7f053917" = "Audio bars";
 "ui.82c47049" = "Remove from the shelf";
+"ui.83c1f720" = "Pause";
 "ui.83e5c17b" = "Message text";
 "ui.85474f45" = "Show remaining time";
 "ui.861db551" = "Clock in the corner";
@@ -93,6 +99,7 @@
 "ui.8c0b41a6" = "Reply";
 "ui.8e26e1a9" = "Copy something and it will show up here";
 "ui.90ab41c7" = "granted";
+"ui.90b3ea77" = "%d entries";
 "ui.90b5e2c6" = "File";
 "ui.93970437" = "Text";
 "ui.963d7c59" = "Next event from Calendar";
@@ -124,6 +131,7 @@
 "ui.b21f7530" = "Full-screen player";
 "ui.b28f6d41" = "Everything";
 "ui.b3d61e84" = "Voice message";
+"ui.b40e7215" = "Nothing yet";
 "ui.b6f2704c" = "Restart Aura";
 "ui.b7f30c25" = "Hide the island";
 "ui.b8206c31" = "Allow Screen Recording";
@@ -138,9 +146,11 @@
 "ui.c7f20a93" = "Video message";
 "ui.c81a4b70" = "Chevron";
 "ui.c904e1b7" = "Play";
+"ui.c93f8021" = "Stay quiet while Focus is on";
 "ui.cc93f407" = "Show the log in Finder";
 "ui.cdcedc31" = "Rounded";
 "ui.cf016813" = "Horizontal scroll switches tracks";
+"ui.d05b3e18" = "Play";
 "ui.d05f2a91" = "Wi-Fi and Personal Hotspot";
 "ui.d1a0f36e" = "Share";
 "ui.d4a10b96" = "Minimal";
@@ -153,6 +163,7 @@
 "ui.e04c9182" = "Video";
 "ui.e04ecaf6" = "space — pause · ← → track · ↑ ↓ volume · esc — close";
 "ui.e0c95a7c" = "A notification is read out of the corner of the eye — size matters more than density here. The app icon and the notch itself grow along with the text.";
+"ui.e2d0b419" = "Clear";
 "ui.e51629de" = "Custom colour";
 "ui.e520c81a" = "Clear clipboard history";
 "ui.e67eddc1" = "Open the permissions screen";

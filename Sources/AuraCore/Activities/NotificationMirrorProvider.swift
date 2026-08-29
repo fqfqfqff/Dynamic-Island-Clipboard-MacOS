@@ -102,6 +102,9 @@ final class NotificationMirrorProvider: ObservableObject {
     /// в одном разговоре повторяется, и через минуту это уже новое событие,
     /// а не тот же баннер, прочитанный второй раз.
     private var seen: [String: Date] = [:]
+    /// Включён ли сейчас режим фокусирования. Ставится снаружи: состояние
+    /// читает провайдер фокуса, у него для этого есть доступ к файлу.
+    var isFocusOn: () -> Bool = { false }
     /// База Центра уведомлений — то, что пришло без баннера.
     private let store = NotificationStore()
     /// Значки, снятые с самих баннеров: для приложений, которых на Маке нет.
@@ -581,6 +584,16 @@ final class NotificationMirrorProvider: ObservableObject {
     /// приложения. Уведомление при этом приходит — просто молча. База знает
     /// о нём всё равно, и знает лучше баннера: там есть идентификатор
     /// приложения, а значит, точная иконка, а не поиск по имени.
+    /// Каким правилом показывать уведомление с учётом режима фокусирования.
+    ///
+    /// Фокус включают, чтобы не отвлекаться, и система при нём молчит. Лезть
+    /// поверх неё карточкой — ровно то, от чего человек и прятался. Значок
+    /// остаётся: он не отвлекает, а посмотреть можно самому.
+    nonisolated static func rule(_ rule: String, focusOn: Bool, respectFocus: Bool) -> String {
+        guard rule == "card", focusOn, respectFocus else { return rule }
+        return "badge"
+    }
+
     /// Сколько ждать баннера, прежде чем показывать то же самое из базы.
     ///
     /// Одно уведомление приходит обоими путями, и тексты у них расходятся:
@@ -718,8 +731,13 @@ final class NotificationMirrorProvider: ObservableObject {
         }
 
         settings.rememberNotificationApp(content.app)
-        let rule = settings.notificationRule(for: content.app)
+        var rule = settings.notificationRule(for: content.app)
         guard rule != "off" else { return }
+
+        // Режим фокусирования включают, чтобы не отвлекаться. Система при
+        // нём молчит, и лезть поверх неё карточкой — ровно то, от чего
+        // человек и прятался. Значок остаётся: он не отвлекает.
+        rule = Self.rule(rule, focusOn: isFocusOn(), respectFocus: settings.respectFocus)
 
         let application = Self.application(named: content.app)
         // Имя приложения в баннере бывает пустым — уведомления с телефона
@@ -787,6 +805,9 @@ final class NotificationMirrorProvider: ObservableObject {
             return
         }
 
+        NotificationArchive.append(
+            app: content.app, sender: content.sender, body: content.body
+        )
         shownThreads[Self.threadKey(app: content.app, sender: content.sender)] = Date()
         if shownThreads.count > 40 {
             let cutoff = Date().addingTimeInterval(-Self.bannerGrace * 4)

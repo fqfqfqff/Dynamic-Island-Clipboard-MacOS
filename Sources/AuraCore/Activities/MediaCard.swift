@@ -313,6 +313,7 @@ struct MediaCard: View {
                 icon("backward.fill", size: 15)
             }
             .buttonStyle(PressableButtonStyle())
+            .accessibilityLabel(t("ui.2f4b9e05", "Предыдущий трек"))
 
             Button { media.send(.togglePlayPause) } label: {
                 Image(systemName: playing.isPlaying ? "pause.fill" : "play.fill")
@@ -322,12 +323,18 @@ struct MediaCard: View {
                     .background(Circle().fill(accent))
                     .contentTransition(.symbolEffect(.replace))
             }
+            .accessibilityLabel(
+                playing.isPlaying
+                    ? t("ui.83c1f720", "Пауза")
+                    : t("ui.d05b3e18", "Играть")
+            )
             .buttonStyle(PressableButtonStyle(pressedScale: 0.9, hoverScale: 1.08))
 
             Button { media.send(.next) } label: {
                 icon("forward.fill", size: 15)
             }
             .buttonStyle(PressableButtonStyle())
+            .accessibilityLabel(t("ui.6c30a4b1", "Следующий трек"))
         }
     }
 

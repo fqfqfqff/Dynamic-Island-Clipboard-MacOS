@@ -22,6 +22,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     /// Когда приложение запустилось — чтобы в диагностике было видно,
     /// за какое время память успела вырасти.
     private let started = Date()
+    private let notificationHistory = NotificationHistoryWindow()
 
     private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard, settings: settings)
     private lazy var notifications = NotificationMirrorProvider(center: activities, settings: settings)
@@ -390,6 +391,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         menu.addItem(.separator())
 
         add(to: menu, title: t("ui.4a8e01d5", "Запросить доступ к плееру"), key: "", action: #selector(requestMusicAccess))
+        add(to: menu, title: t("ui.5f1a90e3", "История уведомлений"), key: "", action: #selector(showNotificationHistory))
         add(to: menu, title: t("ui.e520c81a", "Очистить историю буфера"), key: "", action: #selector(clearClipboard))
         menu.addItem(.separator())
         if let release = updates.available {
@@ -457,6 +459,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func toggleNotchVisible() {
         settings.showNotch.toggle()
         notchController?.setVisible(settings.showNotch && !settings.paused)
+    }
+
+    @objc private func showNotificationHistory() {
+        notificationHistory.show()
     }
 
     @objc private func leaveSafeMode() {
@@ -611,7 +617,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
 
     /// Источники включаются и выключаются на лету, без перезапуска.
+    /// Зеркало уведомлений должно знать про режим фокусирования: при нём
+    /// карточка не показывается.
+    private func connectFocusToNotifications() {
+        notifications.isFocusOn = { [weak self] in
+            guard let self else { return false }
+            return self.focus.activeMode != "выключен"
+        }
+    }
+
     private func applyProviderSettings() {
+        connectFocusToNotifications()
         // Аварийный режим: приложение падало при запуске три раза подряд.
         // Источники — единственное, что лезет в систему, поэтому они
         // и выключаются; окно настроек и меню остаются доступны.

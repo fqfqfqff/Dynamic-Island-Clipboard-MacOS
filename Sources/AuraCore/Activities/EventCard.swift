@@ -90,6 +90,21 @@ struct EventCard: View {
             counter
         }
         .padding(.horizontal, 15 * scale)
+        // Озвучка читает карточку одной фразой: кто, откуда и что прислал.
+        // Поэлементно она перечисляла бы значок, две строки и цифру
+        // по отдельности — это дольше самого уведомления.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenLabel)
+    }
+
+    /// Что произносит озвучка.
+    private var spokenLabel: String {
+        var parts = [message.app, message.sender]
+        parts.append(message.body ?? message.kind.wording)
+        if unread > 1 {
+            parts.append(String(format: t("ui.7a3d1b60", "и ещё %d"), unread - 1))
+        }
+        return parts.joined(separator: ", ")
     }
 
     /// Вторая строка: что пришло, и сколько ещё ждёт.
