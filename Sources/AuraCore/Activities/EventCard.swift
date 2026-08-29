@@ -127,10 +127,7 @@ struct EventCard: View {
     @ViewBuilder
     private var counter: some View {
         if unread > 1 {
-            Text("\(unread)")
-                .font(.system(size: 14 * scale, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .monospacedDigit()
+            UnreadPill(text: "\(unread)", tint: .white, scale: scale)
         }
     }
 }

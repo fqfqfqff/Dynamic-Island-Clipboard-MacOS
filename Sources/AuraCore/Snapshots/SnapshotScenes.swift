@@ -368,7 +368,7 @@ public enum SnapshotScenes {
             let chats: [(String, String, String)] = [
                 ("Мама", "Позвони, как освободишься", "2"),
                 ("Рабочий чат", "Голосовое сообщение", "5"),
-                ("Alex Rivera", "Кружок", "1"),
+                ("Alex Rivera", "Кружок", "3"),
             ]
             for (sender, text, count) in chats {
                 environment.activities.upsert(

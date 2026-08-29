@@ -184,10 +184,7 @@ private struct ActivityRow: View {
                 ProgressRing(progress: value, tint: activity.tint)
                     .frame(width: 19, height: 19)
             case .text(let text):
-                Text(text)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(activity.tint)
-                    .monospacedDigit()
+                UnreadPill(text: text, tint: activity.tint)
             case .pulse:
                 PulsingDot(tint: activity.tint)
             case .audioBars:

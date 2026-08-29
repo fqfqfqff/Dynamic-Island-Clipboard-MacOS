@@ -58,10 +58,7 @@ struct CompactActivityView: View {
             }
         case "text":
             if case .text(let text) = activity.indicator {
-                Text(text)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(activity.tint)
-                    .monospacedDigit()
+                UnreadPill(text: text, tint: .white)
             } else {
                 defaultTrailing
             }
@@ -79,10 +76,7 @@ struct CompactActivityView: View {
             ProgressRing(progress: value, tint: activity.tint)
                 .frame(width: 16, height: 16)
         case .text(let text):
-            Text(text)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(activity.tint)
-                .monospacedDigit()
+            UnreadPill(text: text, tint: .white)
         case .pulse:
             PulsingDot(tint: activity.tint)
         case .audioBars:
@@ -222,5 +216,29 @@ struct PulsingDot: View {
             .fill(tint)
             .frame(width: 8, height: 8)
             .opacity(0.85)
+    }
+}
+
+/// Счётчик непрочитанных — пилюлей, а не голой цифрой.
+///
+/// Цифра сама по себе в вырезе читается как часть интерфейса приложения,
+/// а не как «сколько ждёт»: на айфоне это всегда заполненная пилюля,
+/// и глаз ищет именно её.
+struct UnreadPill: View {
+    let text: String
+    let tint: Color
+    var scale: CGFloat = 1
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11 * scale, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.black.opacity(0.85))
+            .padding(.horizontal, 6 * scale)
+            .padding(.vertical, 2 * scale)
+            .background(Capsule().fill(tint))
+            // Одна цифра в пилюле выглядит приплюснутой — держим минимум
+            // круглым, как на айфоне.
+            .frame(minWidth: 20 * scale)
     }
 }
