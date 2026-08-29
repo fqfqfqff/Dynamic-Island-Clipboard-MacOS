@@ -56,7 +56,19 @@ text, voice message, video message, photo, file or a call. The rim is tinted
 with the app's own colour. Afterwards a badge stays — icon on the left, unread
 count on the right — until you open the app or click it away. Per-app rules
 decide who gets a card, who gets only a badge, and who gets nothing. If the
-system banner is still on screen, **Reply** works straight from the island.
+system banner is still on screen, **Reply** works straight from the island;
+otherwise the card opens the app.
+
+Notifications come from two sources at once: the banner and the Notification
+Center database. There may be no banner at all — a Focus mode suppresses them,
+and macOS lets you switch them off per app — and then the second path carries
+it. Different people get their own rows: five messages from five people are
+five things to do, not a "5" on a messenger badge.
+
+Every notification has an app icon. Installed apps are matched by bundle
+identifier; for the rest the icon is grabbed from the banner itself, because
+notifications mirrored from an iPhone come from apps that are not — and cannot
+be — on the Mac.
 
 **Clipboard.** A window on ⌥⌘V with search, previews, pinning, an undo for
 clearing and a full log of everything ever copied. Links, images, files and
