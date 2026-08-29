@@ -17,6 +17,9 @@ struct MarqueeText: View {
     var speed: CGFloat = 24
     /// Зазор между концом строки и её повтором.
     var gap: CGFloat = 38
+    /// Куда прижимать строку, которая влезла целиком. Едущая строка
+    /// всегда идёт от левого края — там она и появляется.
+    var alignment: Alignment = .center
 
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
@@ -37,7 +40,7 @@ struct MarqueeText: View {
                     .offset(x: offset)
                     .frame(width: geometry.size.width, alignment: .leading)
                 } else {
-                    label.frame(width: geometry.size.width, alignment: .center)
+                    label.frame(width: geometry.size.width, alignment: alignment)
                 }
             }
             .clipped()

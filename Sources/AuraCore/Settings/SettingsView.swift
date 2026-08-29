@@ -456,6 +456,16 @@ struct SettingsView: View {
                 Toggle(t("ui.6b40f9d2", "Загрузки браузера"), isOn: $settings.enableDownloads)
             }
 
+            group(t("ui.4d7b0a91", "Макет плеера")) {
+                Picker("", selection: $settings.playerLayout) {
+                    Text(t("ui.9c1e4b30", "Крупный")).tag("large")
+                    Text(t("ui.6f30d2a8", "Компактный")).tag("compact")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                hint("Крупный отдаёт под обложку двести с лишним точек, и раскрытый остров закрывает треть экрана. Компактный ставит обложку слева, а название и полосу справа — втрое ниже при той же читаемости.")
+            }
+
             group("Spotify") {
                 Toggle(t("ui.4b7e0d92", "Показывать всех исполнителей"), isOn: $settings.enrichSpotifyArtists)
                 hint("В AppleScript у Spotify одно поле «исполнитель», и для трека с несколькими оно называет только первого. Остальных Aura берёт с публичной страницы трека — ключей для этого не нужно, но это сетевой запрос, один на трек.")

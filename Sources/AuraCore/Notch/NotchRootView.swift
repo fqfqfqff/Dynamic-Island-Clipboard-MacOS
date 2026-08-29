@@ -31,7 +31,12 @@ struct NotchRootView: View {
         viewModel.state != .collapsed || viewModel.proximity > 0.2
     }
 
-    private var heroSide: CGFloat { isExpanded ? settings.artworkSize : 22 }
+    private var heroSide: CGFloat {
+        guard isExpanded else { return 22 }
+        return settings.playerLayout == "compact"
+            ? MediaCard.compactArtwork
+            : settings.artworkSize
+    }
 
     private var heroRadius: CGFloat {
         isExpanded ? settings.artworkCornerRadius : 5
@@ -41,11 +46,16 @@ struct NotchRootView: View {
     /// в компактном виде — в левый слот у самой кромки выреза.
     private var heroCenter: CGPoint {
         if isExpanded {
+            let side = heroSide
+            // В компактном макете обложка стоит слева, а не по центру:
+            // отступ карточки плюс половина стороны.
+            let x = settings.playerLayout == "compact"
+                ? (size.width - viewModel.expandedSize.width) / 2 + 10 + side / 2
+                : size.width / 2
+
             return CGPoint(
-                x: size.width / 2,
-                y: viewModel.geometry.menuBarHeight
-                    + NotchViewModel.contentTopInset
-                    + settings.artworkSize / 2
+                x: x,
+                y: viewModel.geometry.menuBarHeight + NotchViewModel.contentTopInset + side / 2
             )
         }
         return CGPoint(

@@ -215,6 +215,7 @@ public enum SnapshotScenes {
             notificationBadge(),
             notificationThreads(),
             notificationLong(),
+            compactPlayer(),
             longNames(),
             showcaseColumns(),
             showcaseCentered(),
@@ -362,6 +363,15 @@ public enum SnapshotScenes {
 
     /// Несколько чатов одного мессенджера: у каждого своя строка.
     /// Пятеро написали — это пять дел, а не «5» на значке приложения.
+    /// Компактный макет плеера: обложка слева, название и полоса справа.
+    static func compactPlayer() -> SnapshotScene {
+        scene("13-player-compact", size: expandedCanvas) { environment in
+            environment.settings.playerLayout = "compact"
+            environment.media.inject(nowPlaying())
+            environment.viewModel.state = .expanded
+        }
+    }
+
     static func notificationThreads() -> SnapshotScene {
         scene("11-notification-threads", size: expandedCanvas) { environment in
             let icon = appIcon()

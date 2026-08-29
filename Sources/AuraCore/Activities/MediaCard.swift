@@ -25,8 +25,27 @@ struct MediaCard: View {
         AuraTheme.design(settings.fontDesign)
     }
 
+    /// Сторона обложки в компактном макете.
+    static let compactArtwork: CGFloat = 62
+
+    /// Сторона обложки в текущем макете.
+    private var artworkSide: CGFloat {
+        settings.playerLayout == "compact" ? Self.compactArtwork : settings.artworkSize
+    }
+
     var body: some View {
         if let playing = media.nowPlaying {
+            if settings.playerLayout == "compact" {
+                compactBody(playing)
+            } else {
+                largeBody(playing)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func largeBody(_ playing: NowPlayingProvider.NowPlaying) -> some View {
+        Group {
             VStack(spacing: 6) {
                 artwork(playing)
 
@@ -85,6 +104,62 @@ struct MediaCard: View {
         }
     }
 
+    /// Компактный макет: обложка слева, название и полоса справа.
+    ///
+    /// Крупный макет отдаёт под обложку двести с лишним точек, и раскрытый
+    /// остров закрывает треть экрана. Здесь та же карточка втрое ниже,
+    /// а читается не хуже: строка названия остаётся полной ширины.
+    @ViewBuilder
+    private func compactBody(_ playing: NowPlayingProvider.NowPlaying) -> some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                artwork(playing)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    MarqueeText(
+                        text: playing.title,
+                        font: .system(size: settings.titleFontSize, weight: .bold, design: design),
+                        color: .white,
+                        alignment: .leading
+                    )
+                    .frame(height: settings.titleFontSize + 6)
+
+                    MarqueeText(
+                        text: secondLine(playing),
+                        font: .system(
+                            size: max(9, settings.titleFontSize - 3.5),
+                            weight: .medium,
+                            design: design
+                        ),
+                        color: .white.opacity(didCopy ? 0.85 : 0.55),
+                        alignment: .leading
+                    )
+                    .frame(height: max(9, settings.titleFontSize - 3.5) + 5)
+
+                    if settings.showSeekBar {
+                        Group {
+                            if playing.isPlaying {
+                                TimelineView(.periodic(from: .now, by: 0.2)) { context in
+                                    seekBar(playing, at: context.date)
+                                }
+                            } else {
+                                seekBar(playing, at: .now)
+                            }
+                        }
+                        .frame(height: 26)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { copy(playing) }
+                .help(t("ui.ee1d0a37", "Нажмите, чтобы скопировать название"))
+                .animation(AuraAnimation.content, value: playing.title)
+            }
+
+            if settings.showControls { controls(playing) }
+        }
+        .padding(.horizontal, 10)
+    }
+
     /// Вторая строка карточки.
     ///
     /// По нажатой ⌥ она показывает то, чего в вырезе обычно нет места
@@ -123,7 +198,7 @@ struct MediaCard: View {
     private func artwork(_ playing: NowPlayingProvider.NowPlaying) -> some View {
         if heroArtworkActive {
             Color.clear
-                .frame(width: settings.artworkSize, height: settings.artworkSize)
+                .frame(width: artworkSide, height: artworkSide)
         } else {
             ownArtwork(playing)
         }
@@ -146,7 +221,7 @@ struct MediaCard: View {
                     }
             }
         }
-        .frame(width: settings.artworkSize, height: settings.artworkSize)
+        .frame(width: artworkSide, height: artworkSide)
         .clipShape(RoundedRectangle(cornerRadius: settings.artworkCornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: settings.artworkCornerRadius, style: .continuous)

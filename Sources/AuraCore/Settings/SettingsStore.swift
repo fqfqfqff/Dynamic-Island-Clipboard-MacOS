@@ -64,6 +64,9 @@ final class SettingsStore: ObservableObject {
     /// Слушать ли звук вообще: и полоски спектра, и различение играющего
     /// приложения от молчащего. Пока Aura слушает, macOS держит в строке меню
     /// свой значок «идёт запись» — убрать его можно только перестав слушать.
+    /// Макет плеера: «large» — обложка во всю ширину, «compact» — обложка
+    /// слева, название и полоса справа. Компактный втрое ниже.
+    @Published var playerLayout: String { didSet { save(playerLayout, "playerLayout") } }
     @Published var listenToAudio: Bool { didSet { save(listenToAudio, "listenToAudio") } }
     @Published var enableScreenshots: Bool { didSet { save(enableScreenshots, "enableScreenshots") } }
     @Published var copyScreenshotToClipboard: Bool { didSet { save(copyScreenshotToClipboard, "copyScreenshotToClipboard") } }
@@ -222,6 +225,7 @@ final class SettingsStore: ObservableObject {
         virtualNotchWidth = double("virtualNotchWidth", 190)
 
         enableMusic = bool("enableMusic", true)
+        playerLayout = defaults.string(forKey: "playerLayout") ?? "large"
         listenToAudio = bool("listenToAudio", true)
         enableScreenshots = bool("enableScreenshots", true)
         copyScreenshotToClipboard = bool("copyScreenshotToClipboard", true)

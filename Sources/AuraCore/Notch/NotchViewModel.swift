@@ -123,10 +123,24 @@ final class NotchViewModel: ObservableObject {
     /// Высота содержимого плеера под текущие настройки: обложка, текст,
     /// полоса длительности и кнопки вместе с отступами.
     var playerContentHeight: CGFloat {
+        if settings.playerLayout == "compact" { return compactPlayerHeight }
+
         var height = settings.artworkSize + 6      // обложка и отступ под ней
         height += settings.titleFontSize + 16      // название и исполнитель
         if settings.showSeekBar { height += 32 }
         if settings.showControls { height += 40 }
+        return height + 12
+    }
+
+    /// Компактный макет: обложка и правая колонка стоят рядом, поэтому
+    /// в высоту идёт та из них, что выше, а не сумма.
+    private var compactPlayerHeight: CGFloat {
+        var column = settings.titleFontSize + 6                    // название
+        column += max(9, settings.titleFontSize - 3.5) + 5         // исполнитель
+        if settings.showSeekBar { column += 26 }
+
+        var height = max(MediaCard.compactArtwork, column)
+        if settings.showControls { height += 40 + 6 }
         return height + 12
     }
 

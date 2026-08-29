@@ -40,6 +40,7 @@
 "ui.4a8e01d5" = "Ask for player access";
 "ui.4b7e0d92" = "Show every artist";
 "ui.4c8d20a5" = "Send via AirDrop";
+"ui.4d7b0a91" = "Player layout";
 "ui.4e02b7c1" = "Pause when headphones are unplugged";
 "ui.4f7a89ea" = "Gradient";
 "ui.4fd23b60" = "Badge only";
@@ -63,6 +64,7 @@
 "ui.6c2f8d51" = "Connection lost";
 "ui.6e4b09d8" = "Nothing";
 "ui.6f21a904" = "Time to plug in";
+"ui.6f30d2a8" = "Compact";
 "ui.702f981a" = "Card size";
 "ui.71c0e9a4" = "As a card from the notch";
 "ui.71e5a2c0" = "Show the island";
@@ -96,6 +98,7 @@
 "ui.96a6c958" = "Hover hint";
 "ui.98b2073e" = "Clear";
 "ui.9a41e07b" = "Never record from these apps";
+"ui.9c1e4b30" = "Large";
 "ui.9c2b5e70" = "Copied";
 "ui.9d3c04b8" = "Permissions and setup";
 "ui.9e0b3f71" = "Put on the shelf";
