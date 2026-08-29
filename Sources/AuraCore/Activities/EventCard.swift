@@ -351,6 +351,14 @@ struct EventRim: View {
         var alpha: CGFloat = 0
         base.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
 
+        // У серых иконок тона нет вовсе, и «поднять насыщенность» означает
+        // выдумать цвет: у Редактора скриптов обводка выходила ярко-красной
+        // без всякой на то причины. Для таких берём холодный белый — он
+        // читается как подсветка, а не как чей-то фирменный цвет.
+        guard saturation > 0.15 else {
+            return Color(hue: 0.58, saturation: 0.08, brightness: 1)
+        }
+
         return Color(
             hue: Double(hue),
             saturation: Double(min(1, max(saturation, 0.55))),

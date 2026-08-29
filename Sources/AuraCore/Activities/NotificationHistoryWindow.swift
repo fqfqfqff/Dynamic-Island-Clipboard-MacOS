@@ -87,6 +87,31 @@ struct NotificationHistoryView: View {
     }
 
     private func row(_ entry: NotificationArchive.Entry) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            icon(for: entry)
+                .frame(width: 26, height: 26)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+            body(entry)
+        }
+        .padding(.vertical, 8)
+    }
+
+    /// Иконка приложения. По идентификатору она точная, по имени —
+    /// как повезёт, но лучше пустого места.
+    @ViewBuilder
+    private func icon(for entry: NotificationArchive.Entry) -> some View {
+        let image = entry.bundleID.flatMap { NotificationMirrorProvider.icon(forBundleID: $0) }
+            ?? NotificationMirrorProvider.icon(named: entry.app)
+
+        if let image {
+            Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
+        } else {
+            RoundedRectangle(cornerRadius: 6).fill(.quaternary)
+        }
+    }
+
+    private func body(_ entry: NotificationArchive.Entry) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(entry.sender)
@@ -108,6 +133,5 @@ struct NotificationHistoryView: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 8)
     }
 }

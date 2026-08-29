@@ -14,6 +14,9 @@ enum NotificationArchive {
         let app: String
         let sender: String
         let body: String?
+        /// Идентификатор приложения — по нему в журнале берётся иконка.
+        /// Необязательный: у записей, сделанных до его появления, его нет.
+        var bundleID: String?
 
         var id: String { "\(date.timeIntervalSinceReferenceDate)|\(app)|\(sender)" }
     }
@@ -30,8 +33,10 @@ enum NotificationArchive {
         return base.appendingPathComponent("notifications.jsonl")
     }
 
-    static func append(app: String, sender: String, body: String?) {
-        let entry = Entry(date: Date(), app: app, sender: sender, body: body)
+    static func append(app: String, sender: String, body: String?, bundleID: String? = nil) {
+        let entry = Entry(
+            date: Date(), app: app, sender: sender, body: body, bundleID: bundleID
+        )
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

@@ -806,7 +806,10 @@ final class NotificationMirrorProvider: ObservableObject {
         }
 
         NotificationArchive.append(
-            app: content.app, sender: content.sender, body: content.body
+            app: content.app,
+            sender: content.sender,
+            body: content.body,
+            bundleID: knownBundle ?? application?.bundleIdentifier
         )
         shownThreads[Self.threadKey(app: content.app, sender: content.sender)] = Date()
         if shownThreads.count > 40 {
