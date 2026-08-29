@@ -177,6 +177,9 @@ struct NotchRootView: View {
                 .clipped()
                 .opacity(isExpanded ? 1 : 0)
         }
+        .overlay {
+            if isEvent { eventSheen }
+        }
         .overlay { border }
         .overlay {
             // Своя анимация — только для обводки: навесить её на весь стек
@@ -207,10 +210,33 @@ struct NotchRootView: View {
             .animation(.easeIn(duration: 0.2), value: isEvent)
         }
         .shadow(
-            color: .black.opacity(settings.showShadow && isExpanded ? 0.5 : 0),
-            radius: 20,
-            y: 8
+            // Карточка уведомления тоже отбрасывает тень. Без неё она
+            // выглядела наклеенной на обои, а не висящей над ними, —
+            // и это единственное, что отличало её от раскрытой панели.
+            color: .black.opacity(settings.showShadow && (isExpanded || isEvent) ? 0.5 : 0),
+            radius: isEvent ? 14 : 20,
+            y: isEvent ? 6 : 8
         )
+    }
+
+    /// Мягкий свет по верху карточки уведомления.
+    ///
+    /// Верхняя кромка карточки — это сам вырез, там чёрное встречается
+    /// с чёрным, и карточка выглядела плоской заплаткой. Свет начинается
+    /// там же, где обводка, — сразу под строкой меню.
+    private var eventSheen: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0.07), location: 0),
+                .init(color: .white.opacity(0.02), location: 0.4),
+                .init(color: .clear, location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .clipShape(shape)
+        .mask(rimMask)
+        .allowsHitTesting(false)
     }
 
     /// Оформление раскрытой панели, собранное в один слой: одна маска,
@@ -315,8 +341,8 @@ struct NotchRootView: View {
             shape.stroke(
                 LinearGradient(
                     stops: [
-                        .init(color: .white.opacity(isExpanded ? 0.38 : 0.22), location: 0),
-                        .init(color: .white.opacity(isExpanded ? 0.14 : 0.08), location: 0.35),
+                        .init(color: .white.opacity(isExpanded || isEvent ? 0.38 : 0.22), location: 0),
+                        .init(color: .white.opacity(isExpanded || isEvent ? 0.14 : 0.08), location: 0.35),
                         .init(color: .white.opacity(0.04), location: 1),
                     ],
                     startPoint: .top,
