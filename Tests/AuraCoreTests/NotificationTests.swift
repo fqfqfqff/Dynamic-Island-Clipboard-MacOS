@@ -335,3 +335,31 @@ final class FocusRuleTests: XCTestCase {
         )
     }
 }
+
+/// Стопка уведомлений — это несколько сообщений в одном баннере.
+///
+/// Снято с живого экрана: система свернула четыре уведомления в одно,
+/// подписала «стопкой» и сложила тексты подряд. Разобрать такое нельзя —
+/// в карточку попадала каша из чужих обрывков.
+final class StackedBannerTests: XCTestCase {
+    private let stack = [
+        "Редактор скриптов, Записка, чат, в журнал 23771, стопкой",
+        "Записка", "чат", "в журнал 23771",
+        "Telegram", "Вам новое сообщение", "15 минут назад",
+    ]
+
+    func testStackIsRecognised() {
+        XCTAssertTrue(NotificationMirrorProvider.isStack(stack))
+    }
+
+    func testStackProducesNothing() {
+        XCTAssertNil(NotificationMirrorProvider.content(from: ["Notification Center"] + stack))
+    }
+
+    /// Обычный баннер стопкой не считается — иначе пропадут все уведомления.
+    func testOrdinaryBannerIsNotAStack() {
+        let banner = ["Telegram, Мама, позвони", "Мама", "позвони"]
+        XCTAssertFalse(NotificationMirrorProvider.isStack(banner))
+        XCTAssertNotNil(NotificationMirrorProvider.content(from: ["Notification Center"] + banner))
+    }
+}

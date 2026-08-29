@@ -211,6 +211,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             }
             return ok(["снимок": "пишется в Application Support/Aura/banner-shot.png"])
 
+        case .screenShot:
+            let screen = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1710, height: 1112)
+            BannerIconReader.shot(of: CGRect(origin: .zero, size: screen.size)) { url in
+                AppDelegate.log("снимок экрана: \(url?.path ?? "не вышел")")
+            }
+            return ok(["снимок": "Application Support/Aura/banner-shot.png"])
+
+        case .openSettings:
+            showSettings()
+            return ok()
+
+        case .openHistory:
+            notificationHistory.show()
+            return ok()
+
         case .clearNotifications:
             notifications.markAllRead()
             return ok()

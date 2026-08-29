@@ -81,6 +81,12 @@ enum ControlCommand {
     /// показывает баннеры. Нужен для разбора: без него не отличить
     /// «зеркало не работает» от «баннера не было».
     case bannerShot
+    /// Снимок всего экрана — чтобы посмотреть на окна приложения снаружи.
+    case screenShot
+    /// Открыть окно настроек.
+    case openSettings
+    /// Открыть журнал уведомлений.
+    case openHistory
 
     private struct Envelope: Decodable {
         let cmd: String
@@ -111,6 +117,12 @@ enum ControlCommand {
             return .clearNotifications
         case "banner.shot":
             return .bannerShot
+        case "screen.shot":
+            return .screenShot
+        case "settings.open":
+            return .openSettings
+        case "history.open":
+            return .openHistory
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":
@@ -164,6 +176,12 @@ enum ControlCommand {
             return .clearNotifications
         case "banner.shot":
             return .bannerShot
+        case "screen.shot":
+            return .screenShot
+        case "settings.open":
+            return .openSettings
+        case "history.open":
+            return .openHistory
         case "showcase.open":
             return .showcase(true)
         case "showcase.close":

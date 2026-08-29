@@ -886,6 +886,12 @@ final class NotificationMirrorProvider: ObservableObject {
 
         guard !cleaned.isEmpty else { return nil }
 
+        // Стопка — это не одно уведомление, а несколько, свёрнутых системой
+        // в один баннер. Разобрать её нельзя: тексты всех сообщений идут
+        // подряд, и в карточку попадала каша из чужих обрывков. Пропускаем:
+        // база Центра уведомлений отдаст их по одному и чисто.
+        guard !isStack(cleaned) else { return nil }
+
         let summary = cleaned.removeFirst()
         let app = summary
             .components(separatedBy: ", ")
@@ -900,6 +906,22 @@ final class NotificationMirrorProvider: ObservableObject {
             sender: sender,
             body: cleaned.isEmpty ? nil : cleaned.joined(separator: " · ")
         )
+    }
+
+    /// Свёрнуты ли в баннер несколько уведомлений сразу.
+    ///
+    /// Система подписывает такой баннер словом «стопкой» и складывает
+    /// в него тексты всех сообщений подряд.
+    nonisolated static func isStack(_ texts: [String]) -> Bool {
+        let markers = ["стопкой", "стопка", "stacked", "stack of"]
+        if texts.contains(where: { text in
+            let lower = text.lowercased()
+            return markers.contains { lower.contains($0) }
+        }) { return true }
+
+        // Обычный баннер — это имя, отправитель и текст: пять-шесть узлов
+        // с кнопками. Больше бывает только у стопки.
+        return texts.count > 6
     }
 
     /// Что именно прислали. Мессенджеры не пишут в баннер вложение — они

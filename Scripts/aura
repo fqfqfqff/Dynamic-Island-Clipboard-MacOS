@@ -60,6 +60,9 @@ def main():
     sub.add_parser("status", help="диагностика: видна ли панель и что в ней")
     sub.add_parser("notifications-clear", help="снять все непрочитанные уведомления")
     sub.add_parser("banner-shot", help="снимок области баннеров — для разбора")
+    sub.add_parser("screen-shot", help="снимок всего экрана — для разбора")
+    sub.add_parser("settings", help="открыть окно настроек")
+    sub.add_parser("history", help="открыть журнал уведомлений")
 
     showcase = sub.add_parser("showcase", help="витрина плеера на весь экран")
     showcase.add_argument("--close", action="store_true")
@@ -89,6 +92,15 @@ def main():
 
     elif args.command == "banner-shot":
         send({"cmd": "banner.shot"})
+
+    elif args.command == "screen-shot":
+        send({"cmd": "screen.shot"})
+
+    elif args.command == "settings":
+        send({"cmd": "settings.open"})
+
+    elif args.command == "history":
+        send({"cmd": "history.open"})
 
     elif args.command == "showcase":
         send({"cmd": "showcase.close" if args.close else "showcase.open"})
