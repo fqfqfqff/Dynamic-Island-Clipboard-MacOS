@@ -3,7 +3,14 @@ import SwiftUI
 /// Очередь активностей: приоритеты, вытеснение, авто-истечение.
 @MainActor
 final class ActivityCenter: ObservableObject {
+    /// То, что видно в вырезе, — уже с учётом предела.
     @Published private(set) var activities: [Activity] = []
+    /// Всё, что есть на самом деле.
+    ///
+    /// Держать только видимое нельзя: вытесненная активность исчезала
+    /// насовсем, и следующее добавление считало очередь короткой снова —
+    /// счётчик «ещё N» обнулялся, а чат пропадал молча.
+    private var all: [Activity] = []
 
     /// Больше не влезает в компактный вид осмысленно — остальные видны
     /// в раскрытой панели.
@@ -14,6 +21,10 @@ final class ActivityCenter: ObservableObject {
     var featured: Activity? { activities.first }
 
     var hiddenCount: Int { max(0, activities.count - 1) }
+
+    /// Сколько активностей не поместилось. Показывается строкой «ещё N»:
+    /// вытеснять молча нельзя — человек не узнает, что чат вообще был.
+    @Published private(set) var overflow = 0
 
     func start() {
         updateExpiryTimer()
@@ -30,7 +41,7 @@ final class ActivityCenter: ObservableObject {
     /// и в покое, когда в вырезе нет вообще ничего. Просыпаться сто семьдесят
     /// тысяч раз в сутки, чтобы отфильтровать пустой список, незачем.
     private func updateExpiryTimer() {
-        let needed = activities.contains { $0.expiresAt != nil }
+        let needed = all.contains { $0.expiresAt != nil }
 
         guard needed else {
             expiryTimer?.invalidate()
@@ -62,11 +73,11 @@ final class ActivityCenter: ObservableObject {
     func upsert(_ activity: Activity) {
         guard !dismissed.contains(activity.id) else { return }
         var next = activity
-        if let existing = activities.first(where: { $0.id == activity.id }) {
+        if let existing = all.first(where: { $0.id == activity.id }) {
             next.createdAt = existing.createdAt   // обновление не двигает её в конец очереди
         }
 
-        var list = activities.filter { $0.id != activity.id }
+        var list = all.filter { $0.id != activity.id }
         list.append(next)
         apply(list)
     }
@@ -77,8 +88,14 @@ final class ActivityCenter: ObservableObject {
     /// его сначала нужно снять с баннера. Пересобирать активность целиком
     /// нельзя — она уедет в конец очереди и мигнёт.
     func updateArtwork(id: String, artwork: NSImage) {
-        guard let index = activities.firstIndex(where: { $0.id == id }) else { return }
-        activities[index].artwork = artwork
+        if let index = all.firstIndex(where: { $0.id == id }) {
+            all[index].artwork = artwork
+        }
+        // Видимый список — отдельный: активность может лежать в полном
+        // и не попасть в него, и наоборот индекс в них не совпадает.
+        if let index = activities.firstIndex(where: { $0.id == id }) {
+            activities[index].artwork = artwork
+        }
     }
 
     func remove(id: String) {
@@ -89,8 +106,8 @@ final class ActivityCenter: ObservableObject {
         // Провайдер убрал активность сам — значит, повода прятать её больше
         // нет: следующая с тем же именем будет уже про другое.
         if forgetDismissal { dismissed.remove(id) }
-        guard activities.contains(where: { $0.id == id }) else { return }
-        apply(activities.filter { $0.id != id })
+        guard all.contains(where: { $0.id == id }) else { return }
+        apply(all.filter { $0.id != id })
     }
 
     func removeAll() {
@@ -110,8 +127,8 @@ final class ActivityCenter: ObservableObject {
     }
 
     private func purgeExpired() {
-        let alive = activities.filter { !$0.isExpired }
-        guard alive.count != activities.count else { return }
+        let alive = all.filter { !$0.isExpired }
+        guard alive.count != all.count else { return }
         apply(alive)
     }
 
@@ -128,10 +145,15 @@ final class ActivityCenter: ObservableObject {
         if sorted.count > maxVisible {
             let critical = sorted.filter { $0.priority == .critical }
             let rest = sorted.filter { $0.priority != .critical }
-            trimmed = critical + rest.prefix(max(0, maxVisible - critical.count))
+            // Одно место оставляем под строку «ещё N»: вытесненные
+            // активности исчезали молча, и чат, который не влез,
+            // пропадал совсем.
+            trimmed = critical + rest.prefix(max(0, maxVisible - 1 - critical.count))
         } else {
             trimmed = sorted
         }
+        all = sorted
+        overflow = max(0, sorted.count - trimmed.count)
 
         // Без этой проверки любой повторный upsert запускает пружинную
         // анимацию и перерисовку всего выреза — на ровном месте.

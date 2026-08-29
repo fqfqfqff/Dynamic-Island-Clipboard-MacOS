@@ -187,6 +187,7 @@ final class NotchWindowController {
                     : viewModel.accessorySlotWidth * 2
                 viewModel.hasMedia = playing != nil
                 viewModel.hasShelf = !shelf.isEmpty
+                viewModel.overflowRows = self.activities.overflow
                 viewModel.extraRowCount = others
                 viewModel.hasContent = playing != nil || !activities.isEmpty || !shelf.isEmpty
             }

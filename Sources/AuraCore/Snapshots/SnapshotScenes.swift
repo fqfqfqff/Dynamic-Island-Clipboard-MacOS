@@ -252,6 +252,7 @@ public enum SnapshotScenes {
         environment.viewModel.hasMedia = environment.media.nowPlaying != nil
         environment.viewModel.hasShelf = !environment.shelf.items.isEmpty
         environment.viewModel.extraRowCount = others.count
+        environment.viewModel.overflowRows = environment.activities.overflow
         environment.viewModel.hasContent = environment.media.nowPlaying != nil
             || !environment.activities.activities.isEmpty
             || !environment.shelf.items.isEmpty
@@ -379,6 +380,10 @@ public enum SnapshotScenes {
                 ("Мама", "Позвони, как освободишься", "2"),
                 ("Рабочий чат", "Голосовое сообщение", "5"),
                 ("Alex Rivera", "Кружок", "3"),
+                ("Сергей", "Скинул документы", "1"),
+                ("Отдел продаж", "Фотография", "4"),
+                ("Ирина", "Видеосообщение", "2"),
+                ("Курьер", "Заказ у двери", "1"),
             ]
             for (sender, text, count) in chats {
                 environment.activities.upsert(

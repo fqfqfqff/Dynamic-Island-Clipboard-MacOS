@@ -433,6 +433,10 @@ struct NotchRootView: View {
                         )
                     ] ?? 1,
                     onReply: notifications.canReply ? { notifications.reply() } : nil,
+                    onOpen: {
+                        notifications.open(app: message.app)
+                        viewModel.dismissEvent()
+                    },
                     onPasteCode: { code in
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(code, forType: .string)

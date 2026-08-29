@@ -60,6 +60,59 @@ struct ActivitiesPane: View {
         center.activities.filter { $0.id != "media.nowplaying" }
     }
 
+    /// Сколько строк показываем, прежде чем свернуть остаток.
+    ///
+    /// Пять чатов — пять строк, а десять уже растянут остров во весь экран.
+    /// Панель считает высоту по этому же числу, и лишние строки просто
+    /// срезались нижней кромкой.
+    static let maxRows = 5
+
+    /// Строки, которые видно. Очередь активностей и так держит предел —
+    /// здесь остаётся только не выйти за него самим.
+    private var visible: [Activity] {
+        Array(others.prefix(Self.maxRows))
+    }
+
+    /// Сколько осталось за пределом.
+    private var hidden: Int {
+        center.overflow + max(0, others.count - visible.count)
+    }
+
+    /// Итоговая строка: сколько ещё ждёт и от кого.
+    private var moreRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "ellipsis.circle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(width: 26)
+
+            Text(String(format: t("ui.3a90c7e1", "ещё %d"), hidden))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.75))
+
+            if let source = hiddenSource {
+                Text(source)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 11)
+        .frame(height: ActivitiesPane.rowHeight)
+        .background(RoundedRectangle(cornerRadius: 11).fill(Color.white.opacity(0.04)))
+    }
+
+    /// Откуда остаток, если он весь из одного приложения.
+    private var hiddenSource: String? {
+        // Вытесненных активностей у нас на руках нет — очередь их не отдаёт.
+        // Зато если всё, что видно, из одного приложения, остаток почти
+        // наверняка оттуда же.
+        let apps = Set(others.compactMap { NotificationMirrorProvider.appName(fromActivityID: $0.id) })
+        return apps.count == 1 ? apps.first : nil
+    }
+
     private var unreadCount: Int {
         notifications.unread.values.reduce(0, +)
     }
@@ -118,9 +171,10 @@ struct ActivitiesPane: View {
             // Панель растёт под список, а не наоборот.
             if !others.isEmpty {
                 VStack(spacing: 6) {
-                    ForEach(others) { activity in
+                    ForEach(visible) { activity in
                         ActivityRow(activity: activity) { dismiss(activity) }
                     }
+                    if hidden > 0 { moreRow }
                 }
             }
 

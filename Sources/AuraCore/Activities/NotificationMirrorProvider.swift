@@ -433,6 +433,31 @@ final class NotificationMirrorProvider: ObservableObject {
     /// исчез он — отвечать больше нечему.
     var canReply: Bool { replyButton() != nil }
 
+    /// Открыть приложение, которое прислало уведомление.
+    ///
+    /// «Ответить» живёт, только пока на экране висит системный баннер, —
+    /// то есть считанные секунды, а при «Не беспокоить» не бывает вовсе.
+    /// Открыть приложение можно всегда: идентификатор мы знаем и из базы,
+    /// и из самого баннера.
+    func open(app: String) {
+        let bundleID = bundleIDs[app]
+            ?? Self.application(named: app)?.bundleIdentifier
+
+        let url = bundleID.flatMap {
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)
+        } ?? Self.installedApplicationURL(named: app)
+
+        guard let url else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: .init())
+        markRead(app: app)
+    }
+
+    /// Путь установленного приложения по имени — для случая, когда
+    /// идентификатора нет.
+    static func installedApplicationURL(named name: String) -> URL? {
+        installedApplication(named: name)
+    }
+
     /// Нажать «Ответить» на баннере. Дальше человек печатает в него сам.
     func reply() {
         guard let button = replyButton() else { return }

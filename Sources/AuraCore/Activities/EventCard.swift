@@ -11,6 +11,9 @@ struct EventCard: View {
     var unread: Int = 1
     /// nil — отвечать некуда: баннер уже исчез.
     var onReply: (() -> Void)?
+    /// Открыть приложение, которое прислало уведомление. В отличие от
+    /// ответа, доступно всегда.
+    var onOpen: (() -> Void)?
     /// Вставить код подтверждения в то приложение, где сейчас курсор.
     var onPasteCode: ((String) -> Void)?
 
@@ -58,6 +61,18 @@ struct EventCard: View {
                 }
                 .buttonStyle(PressableButtonStyle())
                 .help(t("ui.2b6f40e1", "Вставить код"))
+            }
+
+            if onReply == nil, let onOpen {
+                Button(action: onOpen) {
+                    Image(systemName: "arrow.up.forward")
+                        .font(.system(size: 11 * scale, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 26 * scale, height: 26 * scale)
+                        .background(Circle().fill(Color.white.opacity(0.14)))
+                }
+                .buttonStyle(PressableButtonStyle())
+                .help(t("ui.f2081c34", "Открыть приложение"))
             }
 
             if let onReply {

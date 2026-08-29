@@ -26,6 +26,7 @@
 "ui.2ea94f30" = "Rim in the app’s colour";
 "ui.30b94f16" = "Pause Aura";
 "ui.32f1084f" = "No access to the player";
+"ui.3a90c7e1" = "%d more";
 "ui.3b8c17ef" = "Low Data Mode";
 "ui.3c17e082" = "Mark all read";
 "ui.3c388255" = "Allow Aura to control it in Privacy → Automation";
@@ -162,5 +163,6 @@
 "ui.ee1d0a37" = "Click to copy the track name";
 "ui.ef37cbf6" = "Paste on click";
 "ui.f18a6c30" = "Player control";
+"ui.f2081c34" = "Open the app";
 "ui.f30b8a19" = "Color picker";
 "ui.fe2a94d0" = "Charging";

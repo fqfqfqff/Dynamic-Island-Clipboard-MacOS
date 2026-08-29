@@ -57,6 +57,8 @@ final class NotchViewModel: ObservableObject {
     /// список под ней сжимался в несколько точек: уведомление, зарядка и
     /// прогресс сборки просто не показывались, хотя значок в вырезе горел.
     @Published var extraRowCount: Int = 0
+    /// Сколько активностей не поместилось — под них идёт строка «ещё N».
+    @Published var overflowRows: Int = 0
 
     /// Есть ли что показывать в раскрытой панели.
     ///
@@ -201,7 +203,9 @@ final class NotchViewModel: ObservableObject {
             blocks += 1
         }
 
-        let rows = min(extraRowCount, Self.maxVisibleRows)
+        // Список сворачивается сам: пять строк и «ещё N» шестой.
+        let rows = min(extraRowCount, ActivitiesPane.maxRows)
+            + (overflowRows > 0 ? 1 : 0)
         if rows > 0 {
             // Строки идут своим стеком с зазором в шесть точек между ними.
             height += CGFloat(rows) * ActivitiesPane.rowHeight
