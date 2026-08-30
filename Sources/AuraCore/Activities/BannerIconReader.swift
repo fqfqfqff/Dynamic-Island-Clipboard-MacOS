@@ -45,6 +45,9 @@ final class BannerIconReader {
     /// `frame` — прямоугольник значка в координатах экрана, полученный
     /// через Универсальный доступ: он точнее любых угаданных отступов
     /// и не зависит от версии системы.
+    /// Срезать ли уголок со значком телефона. Ставится снаружи, из настроек.
+    var trimsBadge = true
+
     /// Разрешена ли запись экрана. Без неё снять значок неоткуда.
     var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
 
@@ -81,9 +84,11 @@ final class BannerIconReader {
                     return
                 }
 
-                self.cache[app] = image
-                if let data = image.pngData { try? data.write(to: self.fileURL(for: app)) }
-                completion(image)
+                let clean = self.trimsBadge ? Self.withoutPhoneBadge(image) : image
+                let shaped = Self.rounded(clean)
+                self.cache[app] = shaped
+                if let data = shaped.pngData { try? data.write(to: self.fileURL(for: app)) }
+                completion(shaped)
             }
         }
     }
@@ -156,6 +161,68 @@ final class BannerIconReader {
             }
             return nil
         }
+    }
+
+    /// Скругляет снятый квадрат по форме иконки приложения.
+    ///
+    /// С экрана значок снимается прямоугольником вместе с фоном баннера,
+    /// и в карточке он выглядел вырезанным из чужой картинки: тёмные углы
+    /// выдают квадрат там, где у всех остальных приложений скруглённая
+    /// форма. Радиус — как у иконок macOS, примерно четверть стороны.
+    static func rounded(_ image: NSImage) -> NSImage {
+        let side = min(image.size.width, image.size.height)
+        guard side > 4 else { return image }
+
+        let size = CGSize(width: side, height: side)
+        let result = NSImage(size: size)
+
+        result.lockFocus()
+        let box = NSRect(origin: .zero, size: size)
+        let path = NSBezierPath(roundedRect: box, xRadius: side * 0.23, yRadius: side * 0.23)
+        path.addClip()
+
+        // Рисуем по центру: снятый кадр может быть чуть шире квадрата.
+        let origin = NSPoint(
+            x: (side - image.size.width) / 2,
+            y: (side - image.size.height) / 2
+        )
+        image.draw(
+            in: NSRect(origin: origin, size: image.size),
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1
+        )
+        result.unlockFocus()
+
+        return result
+    }
+
+    /// Срезает уголок со значком телефона.
+    ///
+    /// Уведомление, прилетевшее с айфона, macOS помечает маленьким телефоном
+    /// в правом нижнем углу иконки — своей пометкой «это не отсюда». В снимок
+    /// он попадает вместе с иконкой, и в вырезе выглядит грязью: у остальных
+    /// приложений значок чистый.
+    ///
+    /// Срезаем правый нижний угол и растягиваем остаток обратно в квадрат.
+    /// Иконки редко несут что-то важное в самом углу, а телефон уходит
+    /// целиком.
+    static func withoutPhoneBadge(_ image: NSImage) -> NSImage {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let source = rep.cgImage else { return image }
+
+        let side = min(rep.pixelsWide, rep.pixelsHigh)
+        let keep = Int(Double(side) * 0.84)
+        guard keep > 8 else { return image }
+
+        // Верхний левый квадрат: в системе координат CGImage начало — сверху.
+        guard let cropped = source.cropping(
+            to: CGRect(x: 0, y: 0, width: keep, height: keep)
+        ) else { return image }
+
+        let size = CGSize(width: image.size.width, height: image.size.height)
+        return NSImage(cgImage: cropped, size: size)
     }
 
     /// Отсев пустышек: если баннер уже уехал, в кадр попадёт стол или пустота.

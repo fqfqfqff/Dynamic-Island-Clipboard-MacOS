@@ -120,6 +120,8 @@ final class SettingsStore: ObservableObject {
     /// Требует разрешения на запись экрана — и спрашивается оно только
     /// в первый раз, когда иконку действительно негде взять.
     @Published var readIconsFromBanner: Bool { didSet { save(readIconsFromBanner, "readIconsFromBanner") } }
+    /// Срезать уголок со значком телефона у снятых значков.
+    @Published var trimPhoneBadge: Bool { didSet { save(trimPhoneBadge, "trimPhoneBadge") } }
     /// Молчать карточкой, пока включён режим фокусирования.
     @Published var respectFocus: Bool { didSet { save(respectFocus, "respectFocus") } }
     @Published var notificationRules: [String: String] { didSet { save(notificationRules, "notificationRules") } }
@@ -251,6 +253,7 @@ final class SettingsStore: ObservableObject {
         notificationTintFromIcon = bool("notificationTintFromIcon", true)
         notificationBadgeWhenAppOpen = bool("notificationBadgeWhenAppOpen", true)
         readIconsFromBanner = bool("readIconsFromBanner", true)
+        trimPhoneBadge = bool("trimPhoneBadge", true)
         respectFocus = bool("respectFocus", true)
         notificationRules = defaults.dictionary(forKey: "notificationRules") as? [String: String] ?? [:]
         notificationKnownApps = defaults.stringArray(forKey: "notificationKnownApps") ?? []

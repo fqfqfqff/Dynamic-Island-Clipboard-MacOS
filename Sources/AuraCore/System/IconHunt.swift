@@ -18,6 +18,18 @@ enum IconHunt {
         ]
 
         var lines: [String] = []
+
+        // Вглубь контейнера: вложения и служебные папки — самое вероятное
+        // место, где могла бы осесть иконка приложения с телефона.
+        let deep = home.appendingPathComponent(
+            "Library/Group Containers/group.com.apple.usernoted"
+        )
+        for folder in ["attachments", "Library", "GroupService"] {
+            let url = deep.appendingPathComponent(folder)
+            let items = (try? FileManager.default.subpathsOfDirectory(atPath: url.path)) ?? []
+            lines.append("\(folder): \(items.count) — " + items.prefix(14).joined(separator: ", "))
+        }
+
         for place in places {
             let url = home.appendingPathComponent(place)
             guard FileManager.default.fileExists(atPath: url.path) else {

@@ -787,6 +787,7 @@ final class NotificationMirrorProvider: ObservableObject {
         // иконка и так есть: `defaults write dev.kekch.aura forceBannerIcon -bool true`.
         // Без него путь включается только там, где иконки действительно нет.
         let forced = UserDefaults.standard.bool(forKey: "forceBannerIcon")
+        bannerIcons.trimsBadge = settings.trimPhoneBadge
         if Self.isMonogram(icon) || forced, settings.readIconsFromBanner {
             let frame = latestBanner.flatMap { Self.iconFrame(in: $0) }
             AppDelegate.log("значок с баннера: кадр \(frame.map(String.init(describing:)) ?? "не найден")")
