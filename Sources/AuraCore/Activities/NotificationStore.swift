@@ -156,6 +156,50 @@ final class NotificationStore {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
+    /// Колонки всех таблиц и размеры двоичных полей — ищем иконку.
+    func columns() -> [String] {
+        guard let copy = makeCopy() else { return ["копию сделать не вышло"] }
+        defer { try? FileManager.default.removeItem(at: copy.deletingLastPathComponent()) }
+
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(copy.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              let handle else { return ["база не открылась"] }
+        defer { sqlite3_close(handle) }
+
+        var tables: [String] = []
+        var list: OpaquePointer?
+        if sqlite3_prepare_v2(
+            handle, "SELECT name FROM sqlite_master WHERE type='table'", -1, &list, nil
+        ) == SQLITE_OK {
+            while sqlite3_step(list) == SQLITE_ROW {
+                if let text = sqlite3_column_text(list, 0) { tables.append(String(cString: text)) }
+            }
+        }
+        sqlite3_finalize(list)
+
+        var lines: [String] = []
+        for table in tables {
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(
+                handle, "SELECT * FROM \"\(table)\" LIMIT 1", -1, &statement, nil
+            ) == SQLITE_OK else { continue }
+
+            var described: [String] = []
+            if sqlite3_step(statement) == SQLITE_ROW {
+                for index in 0..<sqlite3_column_count(statement) {
+                    let name = sqlite3_column_name(statement, index).map { String(cString: $0) } ?? "?"
+                    let type = sqlite3_column_type(statement, index)
+                    let size = sqlite3_column_bytes(statement, index)
+                    let kind = type == SQLITE_BLOB ? "двоичное \(size) байт" : "\(type)"
+                    described.append("\(name):\(kind)")
+                }
+            }
+            sqlite3_finalize(statement)
+            lines.append("\(table) → " + described.joined(separator: ", "))
+        }
+        return lines
+    }
+
     /// Все ключи записи — чтобы понять, что ещё лежит в базе.
     func peekKeys(limit: Int = 6) -> [String] {
         guard let copy = makeCopy() else { return ["копию сделать не вышло"] }

@@ -62,6 +62,7 @@ def main():
     timer = sub.add_parser("timer", help="таймер в вырезе")
     timer.add_argument("minutes", nargs="?", type=float, help="сколько минут; без числа — остановить")
 
+    sub.add_parser("notification-open", help="открыть приложение последнего уведомления")
     sub.add_parser("banner-shot", help="снимок области баннеров — для разбора")
     sub.add_parser("screen-shot", help="снимок всего экрана — для разбора")
     sub.add_parser("settings", help="открыть окно настроек")
@@ -98,6 +99,9 @@ def main():
             send({"cmd": "timer.start", "minutes": args.minutes})
         else:
             send({"cmd": "timer.stop"})
+
+    elif args.command == "notification-open":
+        send({"cmd": "notification.open"})
 
     elif args.command == "banner-shot":
         send({"cmd": "banner.shot"})

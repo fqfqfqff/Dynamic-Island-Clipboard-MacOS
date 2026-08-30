@@ -139,16 +139,15 @@ struct NotchRootView: View {
             media.send(.togglePlayPause)
         }
         .onTapGesture {
-            // Клик по карточке — это «увидел»: значок с числом непрочитанных
-            // после него уходит, а сама карточка сворачивается.
-            if isEvent, let message = notifications.latest {
-                notifications.markRead(app: message.app)
-                viewModel.dismissEvent()
-            } else {
-                viewModel.toggleExpanded()
-            }
+            // Карточка уведомления обрабатывает клики сама: у неё есть
+            // кнопки, и общий обработчик срабатывал вместе с ними — остров
+            // раскрывался прямо поверх нажатой кнопки.
+            guard !isEvent else { return }
+            viewModel.toggleExpanded()
         }
-        .gesture(
+        // Одновременный, а не обычный: обычный перехватывал нажатие
+        // у кнопок внутри карточки.
+        .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in isPressed = true }
                 .onEnded { _ in isPressed = false }

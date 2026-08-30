@@ -27,19 +27,25 @@ struct EventCard: View {
 
     var body: some View {
         HStack(spacing: 11 * scale) {
-            icon
+            // Значок и текст — одна большая кнопка «открыть»: так уведомление
+            // и открывают на телефоне. Кнопки справа остаются сами по себе.
+            HStack(spacing: 11 * scale) {
+                icon
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(message.sender)
-                    .font(.system(size: 13 * scale, weight: .semibold, design: design))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(message.sender)
+                        .font(.system(size: 13 * scale, weight: .semibold, design: design))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
 
-                Text(secondLine)
-                    .font(.system(size: 11 * scale, weight: .regular, design: design))
-                    .foregroundStyle(.white.opacity(0.66))
-                    .lineLimit(1)
+                    Text(secondLine)
+                        .font(.system(size: 11 * scale, weight: .regular, design: design))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineLimit(1)
+                }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { onOpen?() }
 
             // Зазор до счётчика: с многоточием текст иначе притирается
             // к цифре вплотную и читается как одно слово.

@@ -82,6 +82,9 @@ enum ControlCommand {
     /// «зеркало не работает» от «баннера не было».
     /// Таймер в вырезе: минуты или nil, чтобы остановить.
     case timer(Double?)
+    /// Открыть приложение последнего уведомления — тем же путём, что
+    /// и кнопка в карточке.
+    case openNotification
     case bannerShot
     /// Снимок всего экрана — чтобы посмотреть на окна приложения снаружи.
     case screenShot
@@ -125,6 +128,8 @@ enum ControlCommand {
             return .timer(envelope.minutes ?? 5)
         case "timer.stop":
             return .timer(nil)
+        case "notification.open":
+            return .openNotification
         case "screen.shot":
             return .screenShot
         case "settings.open":
@@ -186,6 +191,8 @@ enum ControlCommand {
             return .bannerShot
         case "timer.stop":
             return .timer(nil)
+        case "notification.open":
+            return .openNotification
         case "screen.shot":
             return .screenShot
         case "settings.open":

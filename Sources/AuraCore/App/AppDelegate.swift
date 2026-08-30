@@ -235,6 +235,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             countdown.stop()
             return ok(["таймер": "остановлен"])
 
+        case .openNotification:
+            guard let app = notifications.latest?.app else {
+                return ok(["уведомление": "нет"])
+            }
+            notifications.open(app: app)
+            notchController?.close()
+            return ok(["открываю": app])
+
         case .clearNotifications:
             notifications.markAllRead()
             return ok()
@@ -257,6 +265,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["уведомления"] = notifications.isAvailable
             payload["зеркалоСлушает"] = notifications.isWatching
             payload["ключиЗаписей"] = notifications.storeKeys
+            payload["колонкиБазы"] = notifications.storeColumns
+            payload["гдеИконки"] = IconHunt.look()
             payload["базаУведомлений"] = notifications.readsStore
             payload["режимФокусирования"] = focus.activeMode
             payload["строкаМенюСистемы"] = RecordingIndicator.labels()

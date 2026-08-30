@@ -154,6 +154,9 @@ final class NotificationMirrorProvider: ObservableObject {
     /// Что лежит в записях базы — для разбора формата.
     var storeKeys: [String] { store.peekKeys() }
 
+    /// Колонки таблиц базы — ищем, где может лежать иконка.
+    var storeColumns: [String] { store.columns() }
+
     /// Подставить уведомление вручную — для снимков интерфейса и тестов.
     func inject(_ message: Message?) {
         latest = message
