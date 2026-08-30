@@ -58,7 +58,7 @@ struct CompactActivityView: View {
             }
         case "text":
             if case .text(let text) = activity.indicator {
-                UnreadPill(text: text, tint: .white)
+                UnreadPill(text: text, tint: activity.tint)
             } else {
                 defaultTrailing
             }
@@ -76,7 +76,7 @@ struct CompactActivityView: View {
             ProgressRing(progress: value, tint: activity.tint)
                 .frame(width: 16, height: 16)
         case .text(let text):
-            UnreadPill(text: text, tint: .white)
+            UnreadPill(text: text, tint: activity.tint)
         case .pulse:
             PulsingDot(tint: activity.tint)
         case .audioBars:
@@ -233,6 +233,10 @@ struct UnreadPill: View {
         Text(text)
             .font(.system(size: 11 * scale, weight: .bold, design: .rounded))
             .monospacedDigit()
+            // Цифры перекатываются, а не подменяются: у таймера они меняются
+            // каждую секунду, и подмена читается как мигание.
+            .contentTransition(.numericText())
+            .animation(.easeInOut(duration: 0.18), value: text)
             .foregroundStyle(.black.opacity(0.85))
             .padding(.horizontal, 6 * scale)
             .padding(.vertical, 2 * scale)

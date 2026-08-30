@@ -59,6 +59,9 @@ def main():
     sub.add_parser("ping", help="проверить связь")
     sub.add_parser("status", help="диагностика: видна ли панель и что в ней")
     sub.add_parser("notifications-clear", help="снять все непрочитанные уведомления")
+    timer = sub.add_parser("timer", help="таймер в вырезе")
+    timer.add_argument("minutes", nargs="?", type=float, help="сколько минут; без числа — остановить")
+
     sub.add_parser("banner-shot", help="снимок области баннеров — для разбора")
     sub.add_parser("screen-shot", help="снимок всего экрана — для разбора")
     sub.add_parser("settings", help="открыть окно настроек")
@@ -89,6 +92,12 @@ def main():
         send({"cmd": "status"})
     elif args.command == "notifications-clear":
         send({"cmd": "notifications.clear"})
+
+    elif args.command == "timer":
+        if args.minutes:
+            send({"cmd": "timer.start", "minutes": args.minutes})
+        else:
+            send({"cmd": "timer.stop"})
 
     elif args.command == "banner-shot":
         send({"cmd": "banner.shot"})

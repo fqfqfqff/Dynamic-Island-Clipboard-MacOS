@@ -363,3 +363,41 @@ final class StackedBannerTests: XCTestCase {
         XCTAssertNotNil(NotificationMirrorProvider.content(from: ["Notification Center"] + banner))
     }
 }
+
+/// Таймер в вырезе.
+@MainActor
+final class TimerTests: XCTestCase {
+    func testTimeIsSpelledLikeAClock() {
+        XCTAssertEqual(TimerProvider.spelled(300), "5:00")
+        XCTAssertEqual(TimerProvider.spelled(59), "0:59")
+        XCTAssertEqual(TimerProvider.spelled(754), "12:34")
+        XCTAssertEqual(TimerProvider.spelled(3723), "1:02:03")
+    }
+
+    /// Остаток округляется вверх: пока идёт последняя секунда, на вырезе
+    /// должна стоять единица, а не ноль.
+    func testLastSecondIsStillASecond() {
+        XCTAssertEqual(TimerProvider.spelled(0.2), "0:01")
+        XCTAssertEqual(TimerProvider.spelled(0), "0:00")
+    }
+
+    func testTimerShowsUpAndGoesAway() {
+        let center = ActivityCenter()
+        let timer = TimerProvider(center: center)
+
+        timer.start(minutes: 5)
+        XCTAssertTrue(timer.isRunning)
+        XCTAssertTrue(center.activities.contains { $0.id == "timer.running" })
+
+        timer.stop()
+        XCTAssertFalse(timer.isRunning)
+        XCTAssertFalse(center.activities.contains { $0.id == "timer.running" })
+    }
+
+    /// Нулевой и отрицательный таймер — это не таймер.
+    func testNothingStartsFromZero() {
+        let timer = TimerProvider(center: ActivityCenter())
+        timer.start(minutes: 0)
+        XCTAssertFalse(timer.isRunning)
+    }
+}

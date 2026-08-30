@@ -23,6 +23,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     /// за какое время память успела вырасти.
     private let started = Date()
     private let notificationHistory = NotificationHistoryWindow()
+    private lazy var countdown = TimerProvider(center: activities)
 
     private lazy var screenshots = ScreenshotActivityProvider(center: activities, clipboard: clipboard, settings: settings)
     private lazy var notifications = NotificationMirrorProvider(center: activities, settings: settings)
@@ -226,6 +227,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             notificationHistory.show()
             return ok()
 
+        case .timer(let minutes):
+            if let minutes, minutes > 0 {
+                countdown.start(minutes: minutes)
+                return ok(["осталось": TimerProvider.spelled(countdown.remaining)])
+            }
+            countdown.stop()
+            return ok(["таймер": "остановлен"])
+
         case .clearNotifications:
             notifications.markAllRead()
             return ok()
@@ -407,6 +416,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         menu.addItem(.separator())
 
         add(to: menu, title: t("ui.4a8e01d5", "Запросить доступ к плееру"), key: "", action: #selector(requestMusicAccess))
+        menu.addItem(timerItem())
         add(to: menu, title: t("ui.5f1a90e3", "История уведомлений"), key: "", action: #selector(showNotificationHistory))
         add(to: menu, title: t("ui.e520c81a", "Очистить историю буфера"), key: "", action: #selector(clearClipboard))
         menu.addItem(.separator())
@@ -475,6 +485,49 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func toggleNotchVisible() {
         settings.showNotch.toggle()
         notchController?.setVisible(settings.showNotch && !settings.paused)
+    }
+
+    /// Пункт «Таймер» с готовыми временами. Пока таймер идёт, первым
+    /// пунктом стоит остановка и видно, сколько осталось.
+    private func timerItem() -> NSMenuItem {
+        let item = NSMenuItem(title: t("ui.a70f2d31", "Таймер"), action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+
+        if countdown.isRunning {
+            let stop = NSMenuItem(
+                title: String(
+                    format: t("ui.36c8b0a1", "Остановить — осталось %@"),
+                    TimerProvider.spelled(countdown.remaining)
+                ),
+                action: #selector(stopTimer),
+                keyEquivalent: ""
+            )
+            stop.target = self
+            submenu.addItem(stop)
+            submenu.addItem(.separator())
+        }
+
+        for minutes in [1, 3, 5, 10, 15, 25, 45, 60] {
+            let entry = NSMenuItem(
+                title: String(format: t("ui.d1e4703b", "%d мин"), minutes),
+                action: #selector(startTimer(_:)),
+                keyEquivalent: ""
+            )
+            entry.target = self
+            entry.tag = minutes
+            submenu.addItem(entry)
+        }
+
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func startTimer(_ sender: NSMenuItem) {
+        countdown.start(minutes: Double(sender.tag))
+    }
+
+    @objc private func stopTimer() {
+        countdown.stop()
     }
 
     @objc private func showNotificationHistory() {

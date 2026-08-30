@@ -80,6 +80,8 @@ enum ControlCommand {
     /// Снимок правого верхнего угла экрана — того места, где система
     /// показывает баннеры. Нужен для разбора: без него не отличить
     /// «зеркало не работает» от «баннера не было».
+    /// Таймер в вырезе: минуты или nil, чтобы остановить.
+    case timer(Double?)
     case bannerShot
     /// Снимок всего экрана — чтобы посмотреть на окна приложения снаружи.
     case screenShot
@@ -91,6 +93,8 @@ enum ControlCommand {
     private struct Envelope: Decodable {
         let cmd: String
         let id: String?
+        /// Минуты для таймера.
+        let minutes: Double?
     }
 
     static func parse(json data: Data) throws -> ControlCommand {
@@ -117,6 +121,10 @@ enum ControlCommand {
             return .clearNotifications
         case "banner.shot":
             return .bannerShot
+        case "timer.start":
+            return .timer(envelope.minutes ?? 5)
+        case "timer.stop":
+            return .timer(nil)
         case "screen.shot":
             return .screenShot
         case "settings.open":
@@ -176,6 +184,8 @@ enum ControlCommand {
             return .clearNotifications
         case "banner.shot":
             return .bannerShot
+        case "timer.stop":
+            return .timer(nil)
         case "screen.shot":
             return .screenShot
         case "settings.open":

@@ -10,6 +10,7 @@
 "ui.0a7c3e58" = "Dismiss";
 "ui.0b3f7d25" = "System";
 "ui.0bedd176" = "Full screen";
+"ui.0c9b7e42" = "Time is up";
 "ui.0cf01a90" = "Displays without a notch";
 "ui.0d4c81b7" = "Battery %d%%";
 "ui.0d5c8a12" = "Ask what to do with a dropped file";
@@ -47,6 +48,7 @@
 "ui.30b94f16" = "Pause Aura";
 "ui.32f1084f" = "No access to the player";
 "ui.36a4dd62" = "Headphones";
+"ui.36c8b0a1" = "Stop — %@ left";
 "ui.374cdcba" = "Character";
 "ui.38213724" = "Response radius";
 "ui.3a90c7e1" = "%d more";
@@ -171,6 +173,7 @@
 "ui.a5d70409" = "What to show";
 "ui.a6e07c48" = "Dot";
 "ui.a70c53e2" = "Focus off";
+"ui.a70f2d31" = "Timer";
 "ui.ac282097" = "Reset all settings";
 "ui.af38016d" = "Call";
 "ui.archive" = "in log";
@@ -208,6 +211,7 @@
 "ui.d05f2a91" = "Wi-Fi and Personal Hotspot";
 "ui.d113c279" = "Multiple displays";
 "ui.d1a0f36e" = "Share";
+"ui.d1e4703b" = "%d min";
 "ui.d2d09a67" = "Expanding";
 "ui.d4a10b96" = "Minimal";
 "ui.d4e91b07" = "Grab the icon from the banner";
