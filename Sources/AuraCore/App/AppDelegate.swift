@@ -247,6 +247,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             payload["плеер"] = media.diagnostics
             payload["уведомления"] = notifications.isAvailable
             payload["зеркалоСлушает"] = notifications.isWatching
+            payload["ключиЗаписей"] = notifications.storeKeys
             payload["базаУведомлений"] = notifications.readsStore
             payload["режимФокусирования"] = focus.activeMode
             payload["строкаМенюСистемы"] = RecordingIndicator.labels()

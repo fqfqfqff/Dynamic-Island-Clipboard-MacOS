@@ -151,6 +151,9 @@ final class NotificationMirrorProvider: ObservableObject {
     /// что система не показала баннером.
     var readsStore: Bool { store.isAvailable }
 
+    /// Что лежит в записях базы — для разбора формата.
+    var storeKeys: [String] { store.peekKeys() }
+
     /// Подставить уведомление вручную — для снимков интерфейса и тестов.
     func inject(_ message: Message?) {
         latest = message

@@ -62,9 +62,10 @@ final class BannerIconReader {
         }
         pending.insert(app)
 
-        // Немного внутрь: в поле значка входит и отступ вокруг него,
-        // а с тёмной рамкой по краям иконка выглядит мельче, чем есть.
-        let tight = frame.insetBy(dx: frame.width * 0.07, dy: frame.height * 0.07)
+        // Немного внутрь: в поле значка входит и воздух вокруг него.
+        // Обрезать по краю самой иконки не выходит — на тёмном баннере
+        // тёмная иконка от фона неотличима, и обрез съедал её саму.
+        let tight = frame.insetBy(dx: frame.width * 0.06, dy: frame.height * 0.06)
 
         Task { [weak self] in
             let image = await Self.capture(frame: tight)
@@ -137,8 +138,11 @@ final class BannerIconReader {
             let filter = SCContentFilter(display: display, excludingWindows: [])
             let configuration = SCStreamConfiguration()
             configuration.sourceRect = frame
-            configuration.width = Int(frame.width * 2)
-            configuration.height = Int(frame.height * 2)
+            // Втрое от точек: экран и так рисуется вдвое, но третий проход
+            // избавляет от второго пересчёта при показе — значок рисуется
+            // крупнее, чем снят, и мылится именно на этом шаге.
+            configuration.width = Int(frame.width * 3)
+            configuration.height = Int(frame.height * 3)
             configuration.showsCursor = false
             configuration.captureResolution = .best
 

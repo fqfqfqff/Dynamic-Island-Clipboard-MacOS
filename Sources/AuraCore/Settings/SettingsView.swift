@@ -245,6 +245,16 @@ struct SettingsView: View {
 
     private var player: some View {
         VStack(alignment: .leading, spacing: 22) {
+            group(t("ui.4d7b0a91", "Макет плеера")) {
+                Picker("", selection: $settings.playerLayout) {
+                    Text(t("ui.9c1e4b30", "Крупный")).tag("large")
+                    Text(t("ui.6f30d2a8", "Компактный")).tag("compact")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                hint("Крупный отдаёт под обложку двести с лишним точек, и раскрытый остров закрывает треть экрана. Компактный ставит обложку слева, а название и полосу справа — втрое ниже при той же читаемости.")
+            }
+
             advanced {
                 group(t("ui.a0d610b7", "Обложка")) {
                     slider(t("ui.98713e88", "Размер"), $settings.artworkSize, 72...170, "pt")
@@ -496,16 +506,6 @@ struct SettingsView: View {
                 Toggle(t("ui.963d7c59", "Ближайшая встреча из Календаря"), isOn: $settings.enableCalendar)
                 Toggle(t("ui.d05f2a91", "Wi-Fi и режим модема"), isOn: $settings.enableNetwork)
                 Toggle(t("ui.6b40f9d2", "Загрузки браузера"), isOn: $settings.enableDownloads)
-            }
-
-            group(t("ui.4d7b0a91", "Макет плеера")) {
-                Picker("", selection: $settings.playerLayout) {
-                    Text(t("ui.9c1e4b30", "Крупный")).tag("large")
-                    Text(t("ui.6f30d2a8", "Компактный")).tag("compact")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                hint("Крупный отдаёт под обложку двести с лишним точек, и раскрытый остров закрывает треть экрана. Компактный ставит обложку слева, а название и полосу справа — втрое ниже при той же читаемости.")
             }
 
             group("Spotify") {

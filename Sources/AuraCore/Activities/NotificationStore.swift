@@ -156,6 +156,48 @@ final class NotificationStore {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
+    /// Все ключи записи — чтобы понять, что ещё лежит в базе.
+    func peekKeys(limit: Int = 6) -> [String] {
+        guard let copy = makeCopy() else { return ["копию сделать не вышло"] }
+        defer { try? FileManager.default.removeItem(at: copy.deletingLastPathComponent()) }
+
+        var handle: OpaquePointer?
+        guard sqlite3_open_v2(copy.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              let handle else { return ["база не открылась"] }
+        defer { sqlite3_close(handle) }
+
+        let sql = "SELECT record.rec_id, app.identifier, record.data FROM record "
+            + "JOIN app ON app.app_id = record.app_id ORDER BY record.rec_id DESC LIMIT ?"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int(statement, 1, Int32(limit))
+
+        var lines: [String] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let app = sqlite3_column_text(statement, 1).map { String(cString: $0) } ?? "?"
+            guard let blob = sqlite3_column_blob(statement, 2) else { continue }
+            let data = Data(bytes: blob, count: Int(sqlite3_column_bytes(statement, 2)))
+
+            guard let plist = try? PropertyListSerialization.propertyList(
+                from: data, options: [], format: nil
+            ) as? [String: Any] else { continue }
+
+            var described: [String] = []
+            for (key, value) in plist.sorted(by: { $0.key < $1.key }) {
+                if let nested = value as? [String: Any] {
+                    described.append("\(key){" + nested.keys.sorted().joined(separator: ",") + "}")
+                } else if let bytes = value as? Data {
+                    described.append("\(key)=данные \(bytes.count) байт")
+                } else {
+                    described.append("\(key)=\(String(describing: value).prefix(40))")
+                }
+            }
+            lines.append("\(app): " + described.joined(separator: "  "))
+        }
+        return lines
+    }
+
     /// Свежие записи как есть — для разбора формата.
     func peek(limit: Int = 4) -> [String] {
         guard let copy = makeCopy() else { return ["копию сделать не вышло"] }
