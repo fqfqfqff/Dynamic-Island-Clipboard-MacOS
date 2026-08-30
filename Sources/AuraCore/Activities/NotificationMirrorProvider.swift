@@ -980,14 +980,16 @@ final class NotificationMirrorProvider: ObservableObject {
         let gap = banner.textLeft - banner.frame.minX
         guard gap > 24, gap < banner.frame.width / 2 else { return nil }
 
-        // Поле слева от текста — это отступ, значок и ещё отступ. Значок
-        // занимает примерно две трети поля.
-        let side = min(gap * 0.66, banner.frame.height * 0.62)
+        // Берём всё поле слева от текста целиком, а не угаданный квадрат
+        // внутри него. Отступы у баннеров разные — у одних значок стоит
+        // выше, у других уже, — и квадрат по формуле то срезал иконку,
+        // то захватывал пустой фон. Где в этой полосе сама иконка,
+        // решается по картинке: там она видна.
         return CGRect(
-            x: banner.frame.minX + (gap - side) / 2,
-            y: banner.frame.midY - side / 2,
-            width: side,
-            height: side
+            x: banner.frame.minX,
+            y: banner.frame.minY,
+            width: gap,
+            height: banner.frame.height
         )
     }
 

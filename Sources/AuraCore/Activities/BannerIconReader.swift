@@ -65,13 +65,8 @@ final class BannerIconReader {
         }
         pending.insert(app)
 
-        // Немного внутрь: в поле значка входит и воздух вокруг него.
-        // Обрезать по краю самой иконки не выходит — на тёмном баннере
-        // тёмная иконка от фона неотличима, и обрез съедал её саму.
-        let tight = frame.insetBy(dx: frame.width * 0.06, dy: frame.height * 0.06)
-
         Task { [weak self] in
-            let image = await Self.capture(frame: tight)
+            let image = await Self.capture(frame: frame)
             await MainActor.run {
                 guard let self else { return }
                 self.pending.remove(app)
@@ -84,7 +79,14 @@ final class BannerIconReader {
                     return
                 }
 
-                let clean = self.trimsBadge ? Self.withoutPhoneBadge(image) : image
+                // В кадре вся полоса слева от текста — иконку в ней ещё
+                // нужно найти. Не нашлась — значит, сняли не то.
+                guard let found = Self.iconBounds(in: image) else {
+                    AppDelegate.log("значок с баннера: иконки в кадре не видно")
+                    return
+                }
+
+                let clean = self.trimsBadge ? Self.withoutPhoneBadge(found) : found
                 let shaped = Self.rounded(clean)
                 self.cache[app] = shaped
                 if let data = shaped.pngData { try? data.write(to: self.fileURL(for: app)) }
@@ -197,6 +199,64 @@ final class BannerIconReader {
         return result
     }
 
+    /// Находит саму иконку в снятой полосе.
+    ///
+    /// Снимаем всё поле слева от текста: отступы у баннеров разные, и квадрат
+    /// по формуле то срезал иконку, то захватывал пустой фон — у Gmail
+    /// в кадр попал один серый фон. Зато на картинке иконку видно: она
+    /// единственное, что отличается от фона баннера.
+    static func iconBounds(in image: NSImage) -> NSImage? {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let source = rep.cgImage else { return nil }
+
+        // Фон берём с углов: там иконки не бывает никогда.
+        let corners = [(1, 1), (rep.pixelsWide - 2, 1),
+                       (1, rep.pixelsHigh - 2), (rep.pixelsWide - 2, rep.pixelsHigh - 2)]
+        let samples = corners.compactMap { rep.colorAt(x: $0.0, y: $0.1)?.usingColorSpace(.sRGB) }
+        guard !samples.isEmpty else { return nil }
+
+        let background = (
+            red: samples.map(\.redComponent).reduce(0, +) / CGFloat(samples.count),
+            green: samples.map(\.greenComponent).reduce(0, +) / CGFloat(samples.count),
+            blue: samples.map(\.blueComponent).reduce(0, +) / CGFloat(samples.count)
+        )
+
+        func differs(_ x: Int, _ y: Int) -> Bool {
+            guard let color = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
+            let delta = abs(color.redComponent - background.red)
+                + abs(color.greenComponent - background.green)
+                + abs(color.blueComponent - background.blue)
+            return delta > 0.18
+        }
+
+        var minX = rep.pixelsWide, maxX = -1, minY = rep.pixelsHigh, maxY = -1
+        for x in stride(from: 0, to: rep.pixelsWide, by: 2) {
+            for y in stride(from: 0, to: rep.pixelsHigh, by: 2) where differs(x, y) {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+
+        // Ничего не нашлось или нашлось всё — значит, в кадре не иконка.
+        let width = maxX - minX, height = maxY - minY
+        guard width > rep.pixelsWide / 4, height > rep.pixelsHigh / 4 else { return nil }
+
+        // Квадрат по большей стороне, с зажимом в границы кадра.
+        let side = min(max(width, height), min(rep.pixelsWide, rep.pixelsHigh))
+        let centerX = (minX + maxX) / 2, centerY = (minY + maxY) / 2
+        let left = max(0, min(rep.pixelsWide - side, centerX - side / 2))
+        let top = max(0, min(rep.pixelsHigh - side, centerY - side / 2))
+
+        guard let cropped = source.cropping(
+            to: CGRect(x: left, y: top, width: side, height: side)
+        ) else { return nil }
+
+        let scale = CGFloat(rep.pixelsWide) / max(image.size.width, 1)
+        let points = CGFloat(side) / max(scale, 1)
+        return NSImage(cgImage: cropped, size: CGSize(width: points, height: points))
+    }
+
     /// Срезает уголок со значком телефона.
     ///
     /// Уведомление, прилетевшее с айфона, macOS помечает маленьким телефоном
@@ -221,8 +281,11 @@ final class BannerIconReader {
             to: CGRect(x: 0, y: 0, width: keep, height: keep)
         ) else { return image }
 
-        let size = CGSize(width: image.size.width, height: image.size.height)
-        return NSImage(cgImage: cropped, size: size)
+        // Размер — по обрезанному, а не по исходному: растянув обратно
+        // в полный квадрат, мы просто увеличивали иконку, и она уезжала.
+        let scale = CGFloat(rep.pixelsWide) / max(image.size.width, 1)
+        let points = CGFloat(keep) / max(scale, 1)
+        return NSImage(cgImage: cropped, size: CGSize(width: points, height: points))
     }
 
     /// Отсев пустышек: если баннер уже уехал, в кадр попадёт стол или пустота.
