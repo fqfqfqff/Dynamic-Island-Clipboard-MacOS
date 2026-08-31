@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>0.4.0</b> · macOS 14.4+ · Apple silicon and Intel ·
+  <b>0.4.1</b> · macOS 14.4+ · Apple silicon and Intel ·
   <a href="README.ru.md">Русская версия</a>
 </p>
 
@@ -91,6 +91,14 @@ file or a paste *after* taking the shot.
 **Headphones.** Pull them out and the music pauses. macOS does this itself,
 but only for apps that bothered to handle it: Spotify does, a browser usually
 does not.
+
+**A timer and a stopwatch.** macOS has no timer at all — only alarms in the
+Clock app, in a window of their own. A timer is something you glance at.
+Preset durations in the menu, digits right in the notch, a sound when it ends.
+From the terminal: `Scripts/aura timer 5`.
+
+**Where the sound goes.** The menu item is named after the current device;
+inside are all the outputs. One click instead of Control Centre.
 
 **A shelf.** Drop files onto the notch and choose: keep them on the shelf, send
 them by AirDrop, or compress them. Drag them back out later into a mail message
@@ -230,7 +238,7 @@ to another machine.
 ./Scripts/install.sh    # rebuild and update the installed copy
 ./Scripts/shots.sh      # render the interface to PNG — no screen recording needed
 ./Scripts/make-icon.sh  # redraw the app icon
-swift test              # 152 tests
+swift test              # 169 tests
 ./Scripts/bench.sh      # idle cost: CPU and memory
 Scripts/aura status     # diagnostics
 ```
