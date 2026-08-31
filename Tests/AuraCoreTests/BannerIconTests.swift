@@ -67,3 +67,31 @@ final class BannerIconTests: XCTestCase {
         XCTAssertEqual(trimmed.size.width, trimmed.size.height, accuracy: 0.5)
     }
 }
+
+/// Устройства вывода: список и переключение.
+///
+/// В macOS смена вывода — это Пункт управления или ⌥-клик по значку звука.
+/// Вырез уже знает, куда идёт звук, и переключать оттуда естественнее.
+@MainActor
+final class AudioOutputTests: XCTestCase {
+    /// Хотя бы одно устройство вывода есть на любой машине — встроенные
+    /// динамики никуда не денутся.
+    func testThereIsAlwaysSomewhereToPlay() {
+        let devices = AudioOutputs.list()
+        XCTAssertFalse(devices.isEmpty, "не нашлось ни одного выхода")
+        XCTAssertTrue(devices.allSatisfy { !$0.name.isEmpty })
+    }
+
+    /// Текущее ровно одно: список помечает его, и не больше одного.
+    func testExactlyOneIsCurrent() {
+        let current = AudioOutputs.list().filter(\.isCurrent)
+        XCTAssertEqual(current.count, 1)
+        XCTAssertEqual(current.first?.name, AudioOutputs.current()?.name)
+    }
+
+    /// Микрофоны в список не попадают: у них нет выходных каналов.
+    func testOnlyOutputsAreListed() {
+        let names = AudioOutputs.list().map { $0.name.lowercased() }
+        XCTAssertFalse(names.contains { $0.contains("микрофон") || $0.contains("microphone") })
+    }
+}

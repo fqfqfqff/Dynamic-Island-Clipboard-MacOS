@@ -1,4 +1,5 @@
 import AppKit
+import CoreAudio
 import Combine
 
 @MainActor
@@ -243,6 +244,22 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             notchController?.close()
             return ok(["открываю": app])
 
+        case .audioOutput(let name):
+            let devices = AudioOutputs.list()
+            guard let name else {
+                return ok([
+                    "текущее": AudioOutputs.current()?.name ?? "—",
+                    "устройства": devices.map(\.name),
+                ])
+            }
+
+            guard let device = devices.first(where: {
+                $0.name.localizedCaseInsensitiveContains(name)
+            }) else { return ok(["не найдено": name]) }
+
+            AudioOutputs.select(device.id)
+            return ok(["выбрано": device.name])
+
         case .clearNotifications:
             notifications.markAllRead()
             return ok()
@@ -426,6 +443,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         menu.addItem(.separator())
 
         add(to: menu, title: t("ui.4a8e01d5", "Запросить доступ к плееру"), key: "", action: #selector(requestMusicAccess))
+        menu.addItem(outputItem())
         menu.addItem(timerItem())
         add(to: menu, title: t("ui.5f1a90e3", "История уведомлений"), key: "", action: #selector(showNotificationHistory))
         add(to: menu, title: t("ui.e520c81a", "Очистить историю буфера"), key: "", action: #selector(clearClipboard))
@@ -495,6 +513,42 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     @objc private func toggleNotchVisible() {
         settings.showNotch.toggle()
         notchController?.setVisible(settings.showNotch && !settings.paused)
+    }
+
+    /// Пункт «Звук» со списком устройств вывода.
+    ///
+    /// В macOS смена вывода — это Пункт управления или ⌥-клик по значку
+    /// звука: два движения и панель поверх всего. Здесь один клик.
+    private func outputItem() -> NSMenuItem {
+        let devices = AudioOutputs.list()
+        let title = AudioOutputs.current()?.name ?? t("ui.5b1c9e40", "Звук")
+
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+
+        for device in devices {
+            let entry = NSMenuItem(
+                title: device.name,
+                action: #selector(selectOutput(_:)),
+                keyEquivalent: ""
+            )
+            entry.target = self
+            entry.state = device.isCurrent ? .on : .off
+            entry.representedObject = device.id
+            submenu.addItem(entry)
+        }
+
+        if devices.isEmpty {
+            submenu.addItem(NSMenuItem(title: t("ui.7a04c9d2", "Устройств нет"), action: nil, keyEquivalent: ""))
+        }
+
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func selectOutput(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? AudioObjectID else { return }
+        AudioOutputs.select(id)
     }
 
     /// Пункт «Таймер» с готовыми временами. Пока таймер идёт, первым

@@ -62,6 +62,9 @@ def main():
     timer = sub.add_parser("timer", help="таймер в вырезе")
     timer.add_argument("minutes", nargs="?", type=float, help="сколько минут; без числа — остановить")
 
+    output = sub.add_parser("output", help="куда идёт звук; с именем — переключить")
+    output.add_argument("name", nargs="?", help="часть имени устройства")
+
     sub.add_parser("notification-open", help="открыть приложение последнего уведомления")
     sub.add_parser("banner-shot", help="снимок области баннеров — для разбора")
     sub.add_parser("screen-shot", help="снимок всего экрана — для разбора")
@@ -99,6 +102,9 @@ def main():
             send({"cmd": "timer.start", "minutes": args.minutes})
         else:
             send({"cmd": "timer.stop"})
+
+    elif args.command == "output":
+        send({"cmd": "audio.output", "name": args.name})
 
     elif args.command == "notification-open":
         send({"cmd": "notification.open"})

@@ -85,6 +85,8 @@ enum ControlCommand {
     /// Открыть приложение последнего уведомления — тем же путём, что
     /// и кнопка в карточке.
     case openNotification
+    /// Вывод звука: имя устройства или nil, чтобы просто посмотреть список.
+    case audioOutput(String?)
     case bannerShot
     /// Снимок всего экрана — чтобы посмотреть на окна приложения снаружи.
     case screenShot
@@ -98,6 +100,8 @@ enum ControlCommand {
         let id: String?
         /// Минуты для таймера.
         let minutes: Double?
+        /// Имя устройства вывода.
+        let name: String?
     }
 
     static func parse(json data: Data) throws -> ControlCommand {
@@ -130,6 +134,8 @@ enum ControlCommand {
             return .timer(nil)
         case "notification.open":
             return .openNotification
+        case "audio.output":
+            return .audioOutput(envelope.name)
         case "screen.shot":
             return .screenShot
         case "settings.open":
@@ -193,6 +199,8 @@ enum ControlCommand {
             return .timer(nil)
         case "notification.open":
             return .openNotification
+        case "audio.output":
+            return .audioOutput(query["name"])
         case "screen.shot":
             return .screenShot
         case "settings.open":
