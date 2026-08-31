@@ -152,6 +152,8 @@ final class SettingsStore: ObservableObject {
     @Published var showSeekBar: Bool { didSet { save(showSeekBar, "showSeekBar") } }
     @Published var showControls: Bool { didSet { save(showControls, "showControls") } }
     @Published var showLyrics: Bool { didSet { save(showLyrics, "showLyrics") } }
+    /// Строка песни прямо в раскрытом острове, а не только в витрине.
+    @Published var showLyricsInPanel: Bool { didSet { save(showLyricsInPanel, "showLyricsInPanel") } }
     @Published var barCount: Int { didSet { save(barCount, "barCount") } }
     /// 0 — чистый чёрный, 1 — обложка во всю подложку.
     @Published var backdropStrength: Double { didSet { save(backdropStrength, "backdropStrength") } }
@@ -273,6 +275,7 @@ final class SettingsStore: ObservableObject {
         showSeekBar = bool("showSeekBar", true)
         showControls = bool("showControls", true)
         showLyrics = bool("showLyrics", false)
+        showLyricsInPanel = bool("showLyricsInPanel", true)
         barCount = defaults.object(forKey: "barCount") as? Int ?? 5
         backdropStrength = double("backdropStrength", 0.78)
         showcaseOnIdle = bool("showcaseOnIdle", false)

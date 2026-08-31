@@ -129,9 +129,16 @@ final class NotchViewModel: ObservableObject {
 
         var height = settings.artworkSize + 6      // обложка и отступ под ней
         height += settings.titleFontSize + 16      // название и исполнитель
+        height += lyricLineHeight
         if settings.showSeekBar { height += 32 }
         if settings.showControls { height += 40 }
         return height + 12
+    }
+
+    /// Высота строки песни в панели. Ноль, когда её не показывают.
+    private var lyricLineHeight: CGFloat {
+        guard settings.showLyrics, settings.showLyricsInPanel else { return 0 }
+        return max(10, settings.titleFontSize - 4) + 6 + 6
     }
 
     /// Компактный макет: обложка и правая колонка стоят рядом, поэтому
@@ -142,6 +149,7 @@ final class NotchViewModel: ObservableObject {
         if settings.showSeekBar { column += 26 }
 
         var height = max(MediaCard.compactArtwork, column)
+        height += lyricLineHeight
         if settings.showControls { height += 40 + 6 }
         return height + 12
     }

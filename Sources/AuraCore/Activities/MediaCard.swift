@@ -9,6 +9,7 @@ struct MediaCard: View {
     /// из компактного слота, а не появляется здесь заново.
     @Environment(\.heroArtworkActive) private var heroArtworkActive
     @EnvironmentObject private var modifiers: ModifierWatcher
+    @EnvironmentObject private var lyrics: LyricsProvider
     /// Подтверждение показываем на месте исполнителя: отдельная плашка
     /// в вырезе размером с ноготь — это перебор.
     @State private var didCopy = false
@@ -75,6 +76,8 @@ struct MediaCard: View {
                 .onTapGesture { copy(playing) }
                 .help(t("ui.ee1d0a37", "Нажмите, чтобы скопировать название"))
                 .animation(AuraAnimation.content, value: playing.title)
+
+                lyricLine(playing)
 
                 // Полоса и кнопки — один блок: между ними почти нет зазора,
                 // управление читается как часть дорожки.
@@ -155,9 +158,42 @@ struct MediaCard: View {
                 .animation(AuraAnimation.content, value: playing.title)
             }
 
+            lyricLine(playing)
+
             if settings.showControls { controls(playing) }
         }
         .padding(.horizontal, 10)
+    }
+
+    /// Текущая строка песни под названием.
+    ///
+    /// Текст уже приходит с lrclib и показывается в витрине — но витрина
+    /// это отдельный полноэкранный режим, а строка нужна там же, где играет
+    /// музыка. Одна строка, без прошлой и следующей: в вырезе нет места,
+    /// а смысл в том, чтобы поймать, что поют прямо сейчас.
+    @ViewBuilder
+    private func lyricLine(_ playing: NowPlayingProvider.NowPlaying) -> some View {
+        if settings.showLyrics, settings.showLyricsInPanel {
+            TimelineView(.periodic(from: .now, by: playing.isPlaying ? 0.4 : 8)) { context in
+                let position = playing.progress(at: context.date).map {
+                    $0 * (playing.duration ?? 0)
+                } ?? 0
+                let line = lyrics.triple(at: position).current
+
+                Text(line ?? " ")
+                    .font(.system(size: max(10, settings.titleFontSize - 4), design: design))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    // Строка сменяется мягко: резкая подмена в вырезе читается
+                    // как подёргивание, а не как пение.
+                    .animation(.easeInOut(duration: 0.25), value: line)
+                    .id(line ?? "")
+                    .transition(.opacity)
+            }
+            .frame(height: max(10, settings.titleFontSize - 4) + 6)
+        }
     }
 
     /// Вторая строка карточки.

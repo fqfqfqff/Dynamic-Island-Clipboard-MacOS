@@ -368,7 +368,13 @@ public enum SnapshotScenes {
     static func compactPlayer() -> SnapshotScene {
         scene("13-player-compact", size: expandedCanvas) { environment in
             environment.settings.playerLayout = "compact"
+            environment.settings.showLyrics = true
             environment.media.inject(nowPlaying())
+            environment.lyrics.inject([
+                .init(time: 0, text: "Waiting in the car"),
+                .init(time: 90, text: "Waiting for a ride in the dark"),
+                .init(time: 120, text: "The night city grows"),
+            ])
             environment.viewModel.state = .expanded
         }
     }
