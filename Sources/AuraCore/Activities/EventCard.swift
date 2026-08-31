@@ -185,7 +185,9 @@ struct EventRim: View {
     @EnvironmentObject private var settings: SettingsStore
 
     /// Вспышка в первый момент: карточка приходит ярче, чем живёт потом.
-    @State private var settled = false
+    /// На съёмке вспышки нет: её яркость зависит от того, в какой миг
+    /// сделан кадр, и два одинаковых снимка выходили разными.
+    @State private var settled = SnapshotRenderer.isSnapshotting
     /// Момент появления — от него и считается ход блика.
     @State private var appearedAt = Date()
 
@@ -205,9 +207,25 @@ struct EventRim: View {
     }
 
     private func phase(at date: Date) -> CGFloat {
-        let elapsed = date.timeIntervalSince(appearedAt)
-        return CGFloat((elapsed / period).truncatingRemainder(dividingBy: 1))
+        // На съёмке блик стоит на месте: иначе два одинаковых кадра выходят
+        // разными, и сравнение с эталоном ловит движение вместо правок.
+        guard !SnapshotRenderer.isSnapshotting else { return Self.frozenPhase }
+        return Self.phase(elapsed: date.timeIntervalSince(appearedAt), period: period)
     }
+
+    /// Где голова блика через столько-то секунд после появления.
+    ///
+    /// Считается от часов, а не анимацией состояния: `repeatForever`
+    /// начинает круг заново каждый раз, значение прыгает с конца в начало,
+    /// и на стыке виден рывок.
+    static func phase(elapsed: TimeInterval, period: Double) -> CGFloat {
+        guard period > 0 else { return 0 }
+        let turns = elapsed / period
+        return CGFloat(turns - turns.rounded(.down))
+    }
+
+    /// На чём блик замирает во время съёмки.
+    static let frozenPhase: CGFloat = 0.3
 
     private func content(phase: CGFloat) -> some View {
         ZStack {
@@ -257,7 +275,9 @@ struct EventRim: View {
                     )
                 }
             }
-            .blur(radius: 2.5)
+            // Размытие крупнее длины отрезка: иначе хвост виден полосками.
+            // В движении их не замечаешь, а на снимке — сразу.
+            .blur(radius: 4.5)
 
             // Голова — поверх и без размытия: размытый хвост читается как
             // свечение, но сам огонёк должен быть чётким, иначе движение
@@ -280,6 +300,7 @@ struct EventRim: View {
         .allowsHitTesting(false)
         .onAppear {
             appearedAt = Date()
+            guard !SnapshotRenderer.isSnapshotting else { return }
             withAnimation(.easeOut(duration: 0.9)) { settled = true }
         }
     }

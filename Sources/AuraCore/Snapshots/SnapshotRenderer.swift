@@ -13,6 +13,11 @@ import SwiftUI
 @MainActor
 public enum SnapshotRenderer {
 
+    /// Идёт ли съёмка. Виды, у которых что-то движется само по себе,
+    /// на время съёмки замирают: иначе два одинаковых кадра выходят
+    /// разными, и сравнивать их с эталоном бессмысленно.
+    private(set) static var isSnapshotting = false
+
     /// Рисует все сцены в каталог и возвращает пути записанных файлов.
     @discardableResult
     public static func renderAll(into directory: URL) -> [URL] {
@@ -33,6 +38,17 @@ public enum SnapshotRenderer {
 
     /// Один снимок сцены.
     public static func png(of scene: SnapshotScene) -> Data? {
+        isSnapshotting = true
+        // Язык фиксируем: инструмент снимков и тесты запускаются разными
+        // процессами, и системный выбор у них разный — один и тот же кадр
+        // выходил то по-русски, то по-английски.
+        let language = Localization.language
+        Localization.language = "en"
+        defer {
+            isSnapshotting = false
+            Localization.language = language
+        }
+
         let hosting = NSHostingView(rootView: scene.content)
         hosting.frame = CGRect(origin: .zero, size: scene.size)
 

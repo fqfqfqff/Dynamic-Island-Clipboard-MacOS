@@ -63,29 +63,30 @@ final class SnapshotRendererTests: XCTestCase {
         )
     }
 
-    /// Подсветка карточки не просто есть — по ней бежит свет. Проверяется
-    /// это единственным доступным способом: два кадра в разные моменты
-    /// не должны совпасть. Заодно ловится случай, когда анимация встала
-    /// (`repeatForever` без `onAppear` молча ничего не делает).
-    func testRimLightKeepsMoving() throws {
-        // Все кадры — после того, как отыграла вспышка появления: иначе тест
-        // проходил бы и с неподвижной обводкой.
-        //
-        // Кадров три, а не два: блик обходит круг за пару секунд, и половину
-        // круга он проводит в скрытой верхней части — там, где обводка уходит
-        // под кромку выреза. Два кадра могли случайно застать его в одном
-        // и том же невидимом месте.
-        let scene = SnapshotScenes.notificationEvent()
-        let frames = try [1.3, 2.0, 2.6].map { try render(scene, settling: $0) }
+    /// Ход блика по обводке.
+    ///
+    /// Проверяется расчёт, а не кадры: на съёмке блик намеренно замирает,
+    /// иначе два одинаковых снимка выходят разными и эталон ловит движение
+    /// вместо правок.
+    func testRimLightKeepsMoving() {
+        let period = 3.4
 
-        let moved = [
-            biggestDifference(frames[0], frames[1]),
-            biggestDifference(frames[1], frames[2]),
-            biggestDifference(frames[0], frames[2]),
-        ].max() ?? 0
+        // Идёт вперёд и возвращается в начало круга, а не прыгает.
+        XCTAssertEqual(EventRim.phase(elapsed: 0, period: period), 0, accuracy: 0.001)
+        XCTAssertEqual(EventRim.phase(elapsed: period / 2, period: period), 0.5, accuracy: 0.001)
+        XCTAssertEqual(EventRim.phase(elapsed: period, period: period), 0, accuracy: 0.001)
 
-        XCTAssertGreaterThan(
-            moved, 0.05, "подсветка неподвижна — свет по обводке не бежит"
+        // Второй круг идёт так же, как первый: стыка нет.
+        XCTAssertEqual(
+            EventRim.phase(elapsed: period * 3 + 0.85, period: period),
+            EventRim.phase(elapsed: 0.85, period: period),
+            accuracy: 0.001
+        )
+
+        // Между соседними мгновениями свет успевает сдвинуться.
+        XCTAssertNotEqual(
+            EventRim.phase(elapsed: 1.0, period: period),
+            EventRim.phase(elapsed: 1.2, period: period)
         )
     }
 
