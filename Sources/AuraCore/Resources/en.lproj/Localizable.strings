@@ -157,6 +157,7 @@
 "ui.9a41e07b" = "Never record from these apps";
 "ui.9c1e4b30" = "Large";
 "ui.9c2b5e70" = "Copied";
+"ui.9d2c40b7" = "Stopwatch";
 "ui.9d3c04b8" = "Permissions and setup";
 "ui.9e0b3f71" = "Put on the shelf";
 "ui.9e3b17a0" = "Version %@ is out";
@@ -184,6 +185,7 @@
 "ui.b21f7530" = "Full-screen player";
 "ui.b28f6d41" = "Everything";
 "ui.b3d61e84" = "Voice message";
+"ui.b3e0179c" = "Stop the stopwatch";
 "ui.b40bbca3" = "s";
 "ui.b40e7215" = "Nothing yet";
 "ui.b59390bb" = "Background";

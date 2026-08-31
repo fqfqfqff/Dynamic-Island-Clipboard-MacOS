@@ -95,3 +95,33 @@ final class AudioOutputTests: XCTestCase {
         XCTAssertFalse(names.contains { $0.contains("микрофон") || $0.contains("microphone") })
     }
 }
+
+/// Секундомер: то же движение, что у таймера, но вверх и без конца.
+@MainActor
+final class StopwatchTests: XCTestCase {
+    func testStopwatchAppearsAndStops() {
+        let center = ActivityCenter()
+        let watch = TimerProvider(center: center)
+
+        watch.startStopwatch()
+        XCTAssertTrue(watch.isCounting)
+        XCTAssertTrue(center.activities.contains { $0.id == "timer.stopwatch" })
+
+        watch.stop()
+        XCTAssertFalse(watch.isCounting)
+        XCTAssertTrue(center.activities.isEmpty)
+    }
+
+    /// Таймер и секундомер не идут одновременно: один вырез, одна строка.
+    func testOneAtATime() {
+        let center = ActivityCenter()
+        let watch = TimerProvider(center: center)
+
+        watch.start(minutes: 5)
+        watch.startStopwatch()
+
+        XCTAssertTrue(watch.isCounting)
+        XCTAssertFalse(watch.isRunning)
+        XCTAssertFalse(center.activities.contains { $0.id == "timer.running" })
+    }
+}

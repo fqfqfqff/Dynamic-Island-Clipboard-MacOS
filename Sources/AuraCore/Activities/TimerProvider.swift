@@ -18,6 +18,10 @@ final class TimerProvider: ObservableObject {
 
     private let activityID = "timer.running"
     private let doneID = "timer.done"
+    private let stopwatchID = "timer.stopwatch"
+
+    /// Секундомер идёт вверх и не заканчивается сам.
+    private var startedAt: Date?
 
     init(center: ActivityCenter) {
         self.center = center
@@ -54,16 +58,51 @@ final class TimerProvider: ObservableObject {
         self.timer = timer
     }
 
+    /// Секундомер: то же движение, но вверх и без конца.
+    ///
+    /// Отдельная кнопка, а не режим таймера: их путают в любом приложении,
+    /// где они живут в одном месте, и это единственное, что о них помнят.
+    var isCounting: Bool { startedAt != nil }
+
+    func startStopwatch() {
+        stop()
+        startedAt = Date()
+        tick()
+
+        let timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
     func stop() {
         timer?.invalidate()
         timer = nil
         endsAt = nil
+        startedAt = nil
         center.remove(id: activityID)
+        center.remove(id: stopwatchID)
     }
 
     // MARK: - Ход
 
     private func tick() {
+        if let startedAt {
+            center.upsert(
+                Activity(
+                    id: stopwatchID,
+                    title: t("ui.9d2c40b7", "Секундомер"),
+                    subtitle: Self.spelled(Date().timeIntervalSince(startedAt)),
+                    symbol: "stopwatch",
+                    tint: .cyan,
+                    priority: .normal,
+                    indicator: .text(Self.spelled(Date().timeIntervalSince(startedAt)))
+                )
+            )
+            return
+        }
+
         guard let endsAt else { return }
         let left = max(0, endsAt.timeIntervalSinceNow)
 

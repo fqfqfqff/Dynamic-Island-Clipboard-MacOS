@@ -445,6 +445,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         add(to: menu, title: t("ui.4a8e01d5", "Запросить доступ к плееру"), key: "", action: #selector(requestMusicAccess))
         menu.addItem(outputItem())
         menu.addItem(timerItem())
+        add(
+            to: menu,
+            title: countdown.isCounting
+                ? t("ui.b3e0179c", "Остановить секундомер")
+                : t("ui.9d2c40b7", "Секундомер"),
+            key: "",
+            action: #selector(toggleStopwatch)
+        )
         add(to: menu, title: t("ui.5f1a90e3", "История уведомлений"), key: "", action: #selector(showNotificationHistory))
         add(to: menu, title: t("ui.e520c81a", "Очистить историю буфера"), key: "", action: #selector(clearClipboard))
         menu.addItem(.separator())
@@ -588,6 +596,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
     @objc private func startTimer(_ sender: NSMenuItem) {
         countdown.start(minutes: Double(sender.tag))
+    }
+
+    @objc private func toggleStopwatch() {
+        countdown.isCounting ? countdown.stop() : countdown.startStopwatch()
     }
 
     @objc private func stopTimer() {
